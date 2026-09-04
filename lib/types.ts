@@ -1,0 +1,86 @@
+export type AccessType = "open" | "members";
+
+export type ResourceKind = "book" | "paper";
+
+export type Book = {
+  _id: string;
+  title: string;
+  subtitle?: string;
+  author: string;
+  authors?: string[];
+  category: string;
+  year: number;
+  publisher: string;
+  isbn: string;
+  pages: number;
+  language: string;
+  access: AccessType;
+  rating: number;
+  ratingsCount: number;
+  description: string;
+  cover: {
+    from: string;
+    to: string;
+    accent: string;
+  };
+  addedAt: string;
+  reads: number;
+  featured?: boolean;
+};
+
+export type ResearchPaper = {
+  _id: string;
+  title: string;
+  authors: string[];
+  abstract: string;
+  keywords: string[];
+  field: string;
+  year: number;
+  publishedAt: string;
+  venue: string;
+  venueType: "journal" | "conference";
+  citations: number;
+  pages: string;
+  doi: string;
+  access: AccessType;
+  addedAt: string;
+  reads: number;
+};
+
+export type Member = {
+  _id: string;
+  name: string;
+  email: string;
+  role: "Student" | "Faculty" | "Librarian" | "Admin";
+  department: string;
+  joinedAt: string;
+  reads: number;
+  status: "Active" | "Invited" | "Suspended";
+};
+
+export type LibraryItem = {
+  resourceId: string;
+  kind: ResourceKind;
+  savedAt?: string;
+  lastReadAt?: string;
+  progress?: number;
+};
+
+export type UserLibrary = {
+  saved: LibraryItem[];
+  history: LibraryItem[];
+  favorites: LibraryItem[];
+};
+
+export type MonthlyReads = {
+  month: string;
+  books: number;
+  papers: number;
+};
+
+export type PopularResource = {
+  _id: string;
+  title: string;
+  kind: ResourceKind;
+  reads: number;
+};
