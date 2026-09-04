@@ -47,11 +47,13 @@ export type ResearchPaper = {
   reads: number;
 };
 
+export type MemberRole = "Student" | "Faculty" | "Librarian" | "Admin";
+
 export type Member = {
   _id: string;
   name: string;
   email: string;
-  role: "Student" | "Faculty" | "Librarian" | "Admin";
+  role: MemberRole;
   department: string;
   joinedAt: string;
   reads: number;
@@ -72,8 +74,21 @@ export type UserLibrary = {
   favorites: LibraryItem[];
 };
 
+export type MemberRecord = Member & {
+  passwordHash: string;
+  library: UserLibrary;
+};
+
+export type SessionUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: MemberRole;
+};
+
 export type MonthlyReads = {
   month: string;
+  year: number;
   books: number;
   papers: number;
 };
@@ -83,4 +98,23 @@ export type PopularResource = {
   title: string;
   kind: ResourceKind;
   reads: number;
+};
+
+export type LibraryStats = {
+  totalBooks: number;
+  researchPapers: number;
+  activeMembers: number;
+  readsThisMonth: number;
+};
+
+export type RecentResource =
+  | { kind: "book"; addedAt: string; book: Book; paper?: undefined }
+  | { kind: "paper"; addedAt: string; paper: ResearchPaper; book?: undefined };
+
+export type AdminCatalog = {
+  books: Book[];
+  papers: ResearchPaper[];
+  members: Member[];
+  monthlyReads: MonthlyReads[];
+  popularResources: PopularResource[];
 };

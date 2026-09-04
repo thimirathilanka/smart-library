@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { BookCatalog } from "@/components/books/BookCatalog";
-import { books } from "@/lib/mock-data";
+import { listBooks } from "@/lib/data/books";
 
 export const metadata = {
   title: "Books",
@@ -9,6 +9,7 @@ export const metadata = {
 export default async function BooksPage({ searchParams }: PageProps<"/books">) {
   const params = await searchParams;
   const initialQuery = typeof params.q === "string" ? params.q : "";
+  const books = await listBooks();
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">

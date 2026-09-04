@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { PaperCard } from "@/components/papers/PaperCard";
-import { researchFields } from "@/lib/mock-data";
 import type { ResearchPaper } from "@/lib/types";
 
 export function PaperCatalog({
@@ -20,6 +19,10 @@ export function PaperCatalog({
 
   const authors = useMemo(
     () => Array.from(new Set(papers.flatMap((paper) => paper.authors))).sort(),
+    [papers],
+  );
+  const fields = useMemo(
+    () => Array.from(new Set(papers.map((paper) => paper.field))).sort(),
     [papers],
   );
   const years = useMemo(
@@ -60,7 +63,7 @@ export function PaperCatalog({
           label="Research field"
           value={field}
           onChange={setField}
-          options={researchFields.map((item) => ({ value: item, label: item }))}
+          options={fields.map((item) => ({ value: item, label: item }))}
         />
         <Select
           label="Author"

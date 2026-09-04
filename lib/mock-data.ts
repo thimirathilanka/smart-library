@@ -576,13 +576,13 @@ export const userLibrary: UserLibrary = {
 };
 
 export const monthlyReads: MonthlyReads[] = [
-  { month: "Mar", books: 1840, papers: 960 },
-  { month: "Apr", books: 2010, papers: 1120 },
-  { month: "May", books: 1760, papers: 1288 },
-  { month: "Jun", books: 2214, papers: 1410 },
-  { month: "Jul", books: 1988, papers: 1522 },
-  { month: "Aug", books: 2430, papers: 1690 },
-  { month: "Sep", books: 1288, papers: 844 },
+  { month: "Mar", year: 2026, books: 1840, papers: 960 },
+  { month: "Apr", year: 2026, books: 2010, papers: 1120 },
+  { month: "May", year: 2026, books: 1760, papers: 1288 },
+  { month: "Jun", year: 2026, books: 2214, papers: 1410 },
+  { month: "Jul", year: 2026, books: 1988, papers: 1522 },
+  { month: "Aug", year: 2026, books: 2430, papers: 1690 },
+  { month: "Sep", year: 2026, books: 1288, papers: 844 },
 ];
 
 export const popularResources: PopularResource[] = [

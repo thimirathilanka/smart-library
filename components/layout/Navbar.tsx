@@ -5,21 +5,23 @@ import { usePathname, useRouter } from "next/navigation";
 import { BookOpen, Menu, Search, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/format";
-import { currentUser } from "@/lib/mock-data";
+import { signOutAction } from "@/app/actions/auth";
+import type { SessionUser } from "@/lib/types";
 
-const links = [
-  { href: "/", label: "Dashboard" },
-  { href: "/books", label: "Books" },
-  { href: "/research", label: "Research Papers" },
-  { href: "/library", label: "My Library" },
-  { href: "/admin", label: "Admin" },
-];
-
-export function Navbar() {
+export function Navbar({ user }: { user: SessionUser | null }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const isStaff = user?.role === "Admin" || user?.role === "Librarian";
+
+  const links = [
+    { href: "/", label: "Dashboard" },
+    { href: "/books", label: "Books" },
+    { href: "/research", label: "Research Papers" },
+    { href: "/library", label: "My Library" },
+    ...(isStaff ? [{ href: "/admin", label: "Admin" }] : []),
+  ];
 
   function submitSearch(event: React.FormEvent) {
     event.preventDefault();
@@ -28,6 +30,13 @@ export function Navbar() {
     router.push(value ? `${target}?q=${encodeURIComponent(value)}` : target);
     setOpen(false);
   }
+
+  const initials = user?.name
+    ?.split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <header className="glass-nav sticky top-0 z-40">
@@ -80,15 +89,34 @@ export function Navbar() {
         </form>
 
         <div className="ml-auto flex items-center gap-3 md:ml-0">
-          <div className="hidden items-center gap-2 rounded-full border border-line bg-white/70 py-1 pr-3 pl-1 sm:flex">
-            <span className="flex size-7 items-center justify-center rounded-full bg-navy text-[11px] font-semibold text-white">
-              AC
-            </span>
-            <span className="text-xs leading-tight">
-              <span className="block font-medium text-navy">{currentUser.name}</span>
-              <span className="text-muted">{currentUser.role}</span>
-            </span>
-          </div>
+          {user ? (
+            <div className="hidden items-center gap-2 rounded-full border border-line bg-white/70 py-1 pr-2 pl-1 sm:flex">
+              <span className="flex size-7 items-center justify-center rounded-full bg-navy text-[11px] font-semibold text-white">
+                {initials}
+              </span>
+              <span className="text-xs leading-tight">
+                <span className="block font-medium text-navy">{user.name}</span>
+                <span className="text-muted">{user.role}</span>
+              </span>
+              <form action={signOutAction}>
+                <button type="submit" className="px-2 text-xs text-navy-mid hover:text-navy">
+                  Sign out
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div className="hidden items-center gap-2 sm:flex">
+              <Link href="/login" className="text-sm text-navy-mid hover:text-navy">
+                Sign in
+              </Link>
+              <Link
+                href="/register"
+                className="rounded-full bg-navy px-3 py-1.5 text-sm text-white hover:bg-navy-mid"
+              >
+                Register
+              </Link>
+            </div>
+          )}
           <button
             type="button"
             className="rounded-lg p-2 text-navy lg:hidden"
@@ -121,6 +149,22 @@ export function Navbar() {
                 {link.label}
               </Link>
             ))}
+            {user ? (
+              <form action={signOutAction}>
+                <button type="submit" className="w-full rounded-lg px-3 py-2 text-left text-sm text-navy hover:bg-paper">
+                  Sign out
+                </button>
+              </form>
+            ) : (
+              <>
+                <Link href="/login" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm text-navy hover:bg-paper">
+                  Sign in
+                </Link>
+                <Link href="/register" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm text-navy hover:bg-paper">
+                  Register
+                </Link>
+              </>
+            )}
           </div>
         </div>
       ) : null}

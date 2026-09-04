@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { LayoutGrid, List } from "lucide-react";
 import { BookCard } from "@/components/books/BookCard";
-import { bookCategories } from "@/lib/mock-data";
 import type { AccessType, Book } from "@/lib/types";
 import { cn } from "@/lib/format";
 
@@ -23,6 +22,10 @@ export function BookCatalog({
 
   const authors = useMemo(
     () => Array.from(new Set(books.map((book) => book.author))).sort(),
+    [books],
+  );
+  const categories = useMemo(
+    () => Array.from(new Set(books.map((book) => book.category))).sort(),
     [books],
   );
   const years = useMemo(
@@ -59,7 +62,7 @@ export function BookCatalog({
           label="Category"
           value={category}
           onChange={setCategory}
-          options={bookCategories.map((item) => ({ value: item, label: item }))}
+          options={categories.map((item) => ({ value: item, label: item }))}
         />
         <FilterSelect
           label="Author"

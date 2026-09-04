@@ -3,11 +3,10 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { BookOpen, Clock, Heart } from "lucide-react";
-import { books, papers, userLibrary } from "@/lib/mock-data";
 import { BookCover } from "@/components/ui/BookCover";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/format";
-import type { LibraryItem } from "@/lib/types";
+import type { Book, LibraryItem, ResearchPaper, UserLibrary } from "@/lib/types";
 
 const tabs = [
   { id: "saved", label: "Saved papers", icon: BookOpen },
@@ -17,14 +16,22 @@ const tabs = [
 
 type TabId = (typeof tabs)[number]["id"];
 
-export function MyLibrary() {
+export function MyLibrary({
+  library,
+  books,
+  papers,
+}: {
+  library: UserLibrary;
+  books: Book[];
+  papers: ResearchPaper[];
+}) {
   const [tab, setTab] = useState<TabId>("saved");
 
   const items = useMemo(() => {
-    if (tab === "saved") return userLibrary.saved;
-    if (tab === "history") return userLibrary.history;
-    return userLibrary.favorites;
-  }, [tab]);
+    if (tab === "saved") return library.saved;
+    if (tab === "history") return library.history;
+    return library.favorites;
+  }, [tab, library]);
 
   return (
     <div>
@@ -55,7 +62,12 @@ export function MyLibrary() {
         ) : (
           <div className="flex flex-col gap-3">
             {items.map((item) => (
-              <LibraryRow key={`${item.kind}-${item.resourceId}`} item={item} />
+              <LibraryRow
+                key={`${item.kind}-${item.resourceId}`}
+                item={item}
+                book={books.find((entry) => entry._id === item.resourceId)}
+                paper={papers.find((entry) => entry._id === item.resourceId)}
+              />
             ))}
           </div>
         )}
@@ -64,9 +76,15 @@ export function MyLibrary() {
   );
 }
 
-function LibraryRow({ item }: { item: LibraryItem }) {
-  const book = item.kind === "book" ? books.find((entry) => entry._id === item.resourceId) : undefined;
-  const paper = item.kind === "paper" ? papers.find((entry) => entry._id === item.resourceId) : undefined;
+function LibraryRow({
+  item,
+  book,
+  paper,
+}: {
+  item: LibraryItem;
+  book?: Book;
+  paper?: ResearchPaper;
+}) {
   const href = book ? `/books/${book._id}` : paper ? `/research/${paper._id}` : "#";
   const readHref = book ? `/books/${book._id}/read` : paper ? `/research/${paper._id}/read` : "#";
 

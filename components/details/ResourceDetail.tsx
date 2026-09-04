@@ -7,15 +7,22 @@ import { RatingStars } from "@/components/ui/RatingStars";
 import { CitationBlock } from "@/components/details/CitationBlock";
 import { BookCard } from "@/components/books/BookCard";
 import { PaperCard } from "@/components/papers/PaperCard";
+import { LibraryActions } from "@/components/library/LibraryActions";
 import { formatNumber } from "@/lib/format";
 import type { Book, ResearchPaper } from "@/lib/types";
 
 export function BookDetail({
   book,
   related,
+  signedIn = false,
+  saved = false,
+  favorited = false,
 }: {
   book: Book;
   related: Book[];
+  signedIn?: boolean;
+  saved?: boolean;
+  favorited?: boolean;
 }) {
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -29,6 +36,13 @@ export function BookDetail({
             <BookOpen className="size-4" />
             Read online
           </Link>
+          <LibraryActions
+            resourceId={book._id}
+            kind="book"
+            saved={saved}
+            favorited={favorited}
+            signedIn={signedIn}
+          />
         </div>
         <div>
           <p className="text-xs font-semibold tracking-[0.2em] text-navy-soft uppercase">
@@ -74,9 +88,15 @@ export function BookDetail({
 export function PaperDetail({
   paper,
   related,
+  signedIn = false,
+  saved = false,
+  favorited = false,
 }: {
   paper: ResearchPaper;
   related: ResearchPaper[];
+  signedIn?: boolean;
+  saved?: boolean;
+  favorited?: boolean;
 }) {
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -108,6 +128,13 @@ export function PaperDetail({
           <h1 className="mt-3 font-serif text-3xl text-navy">{paper.title}</h1>
           <p className="mt-2 text-navy-mid">{paper.authors.join(" · ")}</p>
           <LinkCta href={`/research/${paper._id}/read`} />
+          <LibraryActions
+            resourceId={paper._id}
+            kind="paper"
+            saved={saved}
+            favorited={favorited}
+            signedIn={signedIn}
+          />
           <section className="mt-6">
             <h2 className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">
               Abstract

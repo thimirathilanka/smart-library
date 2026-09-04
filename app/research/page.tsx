@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { PaperCatalog } from "@/components/papers/PaperCatalog";
-import { papers } from "@/lib/mock-data";
+import { listPapers } from "@/lib/data/papers";
 
 export const metadata = {
   title: "Research Papers",
@@ -11,6 +11,7 @@ export default async function ResearchPage({
 }: PageProps<"/research">) {
   const params = await searchParams;
   const initialQuery = typeof params.q === "string" ? params.q : "";
+  const papers = await listPapers();
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">

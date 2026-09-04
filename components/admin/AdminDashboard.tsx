@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useActionState, useState, type ReactNode } from "react";
 import {
   Bar,
   BarChart,
@@ -20,15 +20,9 @@ import {
   Upload,
   Users,
 } from "lucide-react";
-import {
-  books,
-  members,
-  monthlyReads,
-  papers,
-  popularResources,
-} from "@/lib/mock-data";
+import { createResourceAction, type AuthState } from "@/app/actions/auth";
 import { cn, formatNumber } from "@/lib/format";
-import type { AccessType } from "@/lib/types";
+import type { AccessType, AdminCatalog } from "@/lib/types";
 
 const sections = [
   { id: "analytics", label: "Analytics", icon: BarChart3 },
@@ -40,8 +34,9 @@ const sections = [
 
 type SectionId = (typeof sections)[number]["id"];
 
-export function AdminDashboard() {
+export function AdminDashboard({ catalog }: { catalog: AdminCatalog }) {
   const [section, setSection] = useState<SectionId>("analytics");
+  const { books, papers, members, monthlyReads, popularResources } = catalog;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
@@ -65,23 +60,43 @@ export function AdminDashboard() {
         })}
       </aside>
       <div>
-        {section === "analytics" ? <AnalyticsPanel /> : null}
-        {section === "books" ? <BooksTable /> : null}
-        {section === "papers" ? <PapersTable /> : null}
-        {section === "users" ? <UsersTable /> : null}
+        {section === "analytics" ? (
+          <AnalyticsPanel
+            bookCount={books.length}
+            paperCount={papers.length}
+            activeMembers={members.filter((member) => member.status === "Active").length}
+            monthlyReads={monthlyReads}
+            popularResources={popularResources}
+          />
+        ) : null}
+        {section === "books" ? <BooksTable books={books} /> : null}
+        {section === "papers" ? <PapersTable papers={papers} /> : null}
+        {section === "users" ? <UsersTable members={members} /> : null}
         {section === "upload" ? <UploadForm /> : null}
       </div>
     </div>
   );
 }
 
-function AnalyticsPanel() {
+function AnalyticsPanel({
+  bookCount,
+  paperCount,
+  activeMembers,
+  monthlyReads,
+  popularResources,
+}: {
+  bookCount: number;
+  paperCount: number;
+  activeMembers: number;
+  monthlyReads: AdminCatalog["monthlyReads"];
+  popularResources: AdminCatalog["popularResources"];
+}) {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-3">
-        <Stat label="Books in catalog" value={formatNumber(books.length)} />
-        <Stat label="Research papers" value={formatNumber(papers.length)} />
-        <Stat label="Active members" value={formatNumber(members.filter((m) => m.status === "Active").length)} />
+        <Stat label="Books in catalog" value={formatNumber(bookCount)} />
+        <Stat label="Research papers" value={formatNumber(paperCount)} />
+        <Stat label="Active members" value={formatNumber(activeMembers)} />
       </div>
       <div className="rounded-2xl border border-line bg-white p-5 shadow-sm">
         <h3 className="font-serif text-xl text-navy">Reads over time</h3>
@@ -117,7 +132,7 @@ function AnalyticsPanel() {
   );
 }
 
-function BooksTable() {
+function BooksTable({ books }: { books: AdminCatalog["books"] }) {
   return (
     <Panel title="Books">
       <table className="w-full text-left text-sm">
@@ -146,7 +161,7 @@ function BooksTable() {
   );
 }
 
-function PapersTable() {
+function PapersTable({ papers }: { papers: AdminCatalog["papers"] }) {
   return (
     <Panel title="Research papers">
       <table className="w-full text-left text-sm">
@@ -173,7 +188,7 @@ function PapersTable() {
   );
 }
 
-function UsersTable() {
+function UsersTable({ members }: { members: AdminCatalog["members"] }) {
   return (
     <Panel title="Members">
       <table className="w-full text-left text-sm">
@@ -207,11 +222,13 @@ function UsersTable() {
 
 function UploadForm() {
   const [kind, setKind] = useState<"book" | "paper">("book");
+  const [state, action, pending] = useActionState(createResourceAction, {} as AuthState);
 
   return (
     <Panel title="Add a resource">
       <p className="mb-5 text-sm text-muted">
-        Showcase ingest form. Files are not stored—this is UI only.
+        Add a book or paper to the catalog. Uploaded files are prepared for
+        in-browser reading.
       </p>
       <div className="mb-4 flex gap-2">
         {(["book", "paper"] as const).map((item) => (
@@ -228,55 +245,66 @@ function UploadForm() {
           </button>
         ))}
       </div>
-      <form
-        className="grid gap-4 sm:grid-cols-2"
-        onSubmit={(event) => event.preventDefault()}
-      >
+      <form action={action} className="grid gap-4 sm:grid-cols-2">
+        <input type="hidden" name="kind" value={kind} />
         <label className="sm:col-span-2 rounded-2xl border border-dashed border-navy/30 bg-paper px-6 py-10 text-center">
           <Upload className="mx-auto size-6 text-navy-soft" />
           <p className="mt-2 text-sm text-navy">Drop a manuscript or choose a file</p>
-          <p className="text-xs text-muted">PDF for in-browser reading · not uploaded in this demo</p>
+          <p className="text-xs text-muted">PDF for in-browser reading</p>
           <input type="file" className="sr-only" />
         </label>
-        <Field label="Title" />
-        <Field label={kind === "book" ? "Author" : "Authors"} />
-        {kind === "book" ? <Field label="ISBN" /> : <Field label="DOI" />}
-        <Field label={kind === "book" ? "Category" : "Research field"} />
-        <Field label="Year" />
-        <Field label="Access" as="select" />
+        <Field label="Title" name="title" />
+        {kind === "book" ? (
+          <Field label="Author" name="author" />
+        ) : (
+          <Field label="Authors" name="authors" />
+        )}
+        {kind === "book" ? <Field label="ISBN" name="isbn" /> : <Field label="DOI" name="doi" />}
+        {kind === "book" ? (
+          <Field label="Category" name="category" />
+        ) : (
+          <Field label="Research field" name="field" />
+        )}
+        <Field label="Year" name="year" />
+        <label className="text-xs font-semibold tracking-wide text-muted uppercase">
+          Access
+          <select
+            name="access"
+            className="mt-1.5 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm font-normal text-ink"
+          >
+            <option value="open">Open Access</option>
+            <option value="members">Members Only</option>
+          </select>
+        </label>
         <label className="sm:col-span-2 text-xs font-semibold tracking-wide text-muted uppercase">
           Description / abstract
-          <textarea className="mt-1.5 min-h-28 w-full rounded-lg border border-line px-3 py-2 text-sm font-normal text-ink outline-none" />
+          <textarea
+            name="description"
+            className="mt-1.5 min-h-28 w-full rounded-lg border border-line px-3 py-2 text-sm font-normal text-ink outline-none"
+          />
         </label>
+        {state.error ? <p className="text-sm text-red-700 sm:col-span-2">{state.error}</p> : null}
+        {state.success ? <p className="text-sm text-emerald-800 sm:col-span-2">{state.success}</p> : null}
         <button
           type="submit"
-          className="rounded-full bg-navy px-5 py-2.5 text-sm font-medium text-white hover:bg-navy-mid sm:col-span-2"
+          disabled={pending}
+          className="rounded-full bg-navy px-5 py-2.5 text-sm font-medium text-white hover:bg-navy-mid disabled:opacity-60 sm:col-span-2"
         >
-          Save to catalog
+          {pending ? "Saving…" : "Save to catalog"}
         </button>
       </form>
     </Panel>
   );
 }
 
-function Field({
-  label,
-  as,
-}: {
-  label: string;
-  as?: "select";
-}) {
+function Field({ label, name }: { label: string; name: string }) {
   return (
     <label className="text-xs font-semibold tracking-wide text-muted uppercase">
       {label}
-      {as === "select" ? (
-        <select className="mt-1.5 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm font-normal text-ink">
-          <option>Open Access</option>
-          <option>Members Only</option>
-        </select>
-      ) : (
-        <input className="mt-1.5 w-full rounded-lg border border-line px-3 py-2 text-sm font-normal text-ink outline-none" />
-      )}
+      <input
+        name={name}
+        className="mt-1.5 w-full rounded-lg border border-line px-3 py-2 text-sm font-normal text-ink outline-none"
+      />
     </label>
   );
 }

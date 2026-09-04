@@ -5,23 +5,25 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { PaperCard } from "@/components/papers/PaperCard";
 import { BookCover } from "@/components/ui/BookCover";
 import { AccessBadge } from "@/components/ui/AccessBadge";
-import {
-  featuredBooks,
-  latestPapers,
-  libraryStats,
-  recentlyAdded,
-} from "@/lib/mock-data";
+import { featuredBooks } from "@/lib/data/books";
+import { latestPapers } from "@/lib/data/papers";
+import { getLibraryStats, recentlyAdded } from "@/lib/data/catalog";
 import { formatCompact } from "@/lib/format";
 import Link from "next/link";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const [statsData, featured, papers, recent] = await Promise.all([
+    getLibraryStats(),
+    featuredBooks(),
+    latestPapers(),
+    recentlyAdded(),
+  ]);
   const stats = [
-    { label: "Total books", value: libraryStats.totalBooks, icon: BookOpen },
-    { label: "Research papers", value: libraryStats.researchPapers, icon: FileText },
-    { label: "Active members", value: libraryStats.activeMembers, icon: Users },
-    { label: "Reads this month", value: libraryStats.readsThisMonth, icon: Eye },
+    { label: "Total books", value: statsData.totalBooks, icon: BookOpen },
+    { label: "Research papers", value: statsData.researchPapers, icon: FileText },
+    { label: "Active members", value: statsData.activeMembers, icon: Users },
+    { label: "Reads this month", value: statsData.readsThisMonth, icon: Eye },
   ];
-  const recent = recentlyAdded();
 
   return (
     <div>
@@ -72,7 +74,7 @@ export default function HomePage() {
           href="/books"
           action="Browse all books"
         />
-        <FeaturedCarousel books={featuredBooks()} />
+        <FeaturedCarousel books={featured} />
       </section>
 
       <section className="bg-white/60">
@@ -85,7 +87,7 @@ export default function HomePage() {
             action="Browse all papers"
           />
           <div className="grid gap-4 lg:grid-cols-2">
-            {latestPapers().map((paper) => (
+            {papers.map((paper) => (
               <PaperCard key={paper._id} paper={paper} />
             ))}
           </div>
