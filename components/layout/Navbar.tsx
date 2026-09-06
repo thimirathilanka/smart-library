@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, Menu, Search, X } from "lucide-react";
+import { BookOpen, CreditCard, LogOut, Mail, Menu, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/format";
 import { signOutAction } from "@/app/actions/auth";
@@ -197,40 +197,58 @@ function AccountMenu({ user }: { user: SessionUser }) {
       {open ? (
         <div
           role="menu"
-          className="absolute top-full right-0 z-50 mt-2 w-72 rounded-2xl border border-line bg-white p-4 shadow-lg"
+          className="absolute top-full right-0 z-50 mt-2 w-56 overflow-hidden rounded-3xl border border-line bg-white shadow-[0_18px_40px_rgba(11,31,58,0.12)]"
         >
-          <p className="font-medium text-navy">{user.name}</p>
-          <p className="truncate text-xs text-muted">{user.email}</p>
-          <p className="mt-1 text-xs text-navy-mid">
-            {user.isMember ? "Member" : "Free plan"}
-          </p>
-          <div className="mt-4 flex flex-col gap-2">
-            <Link
-              href="/membership"
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className="rounded-full bg-navy px-4 py-2 text-center text-sm font-medium text-white hover:bg-navy-mid"
-            >
-              Membership
-            </Link>
-            <Link
-              href="/library"
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className="rounded-full border border-line px-4 py-2 text-center text-sm font-medium text-navy hover:bg-paper"
-            >
-              My Library
-            </Link>
-            <form action={signOutAction}>
-              <button
-                type="submit"
+          <div className="p-5">
+            <div className="flex items-center gap-3">
+              <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-navy text-sm font-semibold text-white">
+                {initials}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-base font-semibold text-navy">{user.name}</p>
+                <p className="mt-0.5 text-[11px] font-semibold tracking-[0.14em] text-navy-soft uppercase">
+                  {user.isMember ? "Member" : "Free plan"}
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-4 flex items-center gap-2 rounded-xl bg-paper px-3 py-2.5 text-sm text-navy-mid">
+              <Mail className="size-4 shrink-0 text-muted" />
+              <span className="truncate">{user.email}</span>
+            </p>
+
+            <div className="mt-3 flex flex-col gap-2.5">
+              <Link
+                href="/membership"
                 role="menuitem"
-                className="w-full rounded-full px-4 py-2 text-sm text-navy-mid hover:bg-paper hover:text-navy"
+                onClick={() => setOpen(false)}
+                className="flex items-center justify-center gap-2 rounded-xl bg-navy px-4 py-2.5 text-sm font-medium text-white hover:bg-navy-mid"
               >
-                Sign out
-              </button>
-            </form>
+                <CreditCard className="size-4" />
+                Membership
+              </Link>
+              <Link
+                href="/library"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 py-2.5 text-sm font-medium text-navy hover:bg-paper"
+              >
+                <BookOpen className="size-4 text-muted" />
+                My Library
+              </Link>
+            </div>
           </div>
+
+          <form action={signOutAction} className="border-t border-line bg-paper/70">
+            <button
+              type="submit"
+              role="menuitem"
+              className="flex w-full items-center justify-center gap-2 px-4 py-3 text-sm text-muted hover:text-navy"
+            >
+              <LogOut className="size-4" />
+              Sign out
+            </button>
+          </form>
         </div>
       ) : null}
     </div>
