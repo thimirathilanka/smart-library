@@ -2,16 +2,16 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { BookOpen, Clock, Heart } from "lucide-react";
+import { BookOpen, Clock, FileText } from "lucide-react";
 import { BookCover } from "@/components/ui/BookCover";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/format";
-import type { Book, LibraryItem, ResearchPaper, UserLibrary } from "@/lib/types";
+import type { Book, LibraryItem, ResearchPaper, ResourceKind, UserLibrary } from "@/lib/types";
 
 const tabs = [
-  { id: "saved", label: "Saved papers", icon: BookOpen },
-  { id: "history", label: "Reading history", icon: Clock },
-  { id: "favorites", label: "Favorites", icon: Heart },
+  { id: "books", label: "Books", icon: BookOpen },
+  { id: "papers", label: "Research papers", icon: FileText },
+  { id: "history", label: "History", icon: Clock },
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
@@ -25,13 +25,17 @@ export function MyLibrary({
   books: Book[];
   papers: ResearchPaper[];
 }) {
-  const [tab, setTab] = useState<TabId>("saved");
+  const [tab, setTab] = useState<TabId>("books");
+  const kind: ResourceKind = tab === "papers" ? "paper" : "book";
 
-  const items = useMemo(() => {
-    if (tab === "saved") return library.saved;
-    if (tab === "history") return library.history;
-    return library.favorites;
-  }, [tab, library]);
+  const favorites = useMemo(
+    () => library.favorites.filter((item) => item.kind === kind),
+    [library.favorites, kind],
+  );
+  const saved = useMemo(
+    () => library.saved.filter((item) => item.kind === kind),
+    [library.saved, kind],
+  );
 
   return (
     <div>
@@ -55,23 +59,88 @@ export function MyLibrary({
         })}
       </div>
       <div className="mt-6">
-        {items.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-line bg-white py-16 text-center text-muted">
-            Nothing here yet.
-          </div>
+        {tab === "history" ? (
+          <ItemList
+            items={library.history}
+            books={books}
+            papers={papers}
+            empty="No reading history yet."
+          />
         ) : (
-          <div className="flex flex-col gap-3">
-            {items.map((item) => (
-              <LibraryRow
-                key={`${item.kind}-${item.resourceId}`}
-                item={item}
-                book={books.find((entry) => entry._id === item.resourceId)}
-                paper={papers.find((entry) => entry._id === item.resourceId)}
-              />
-            ))}
+          <div className="flex flex-col gap-8">
+            <LibrarySection
+              title="Favorites"
+              empty={kind === "book" ? "No favorite books yet." : "No favorite papers yet."}
+              items={favorites}
+              books={books}
+              papers={papers}
+            />
+            <LibrarySection
+              title="Saved"
+              empty={kind === "book" ? "No saved books yet." : "No saved papers yet."}
+              items={saved}
+              books={books}
+              papers={papers}
+            />
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function LibrarySection({
+  title,
+  empty,
+  items,
+  books,
+  papers,
+}: {
+  title: string;
+  empty: string;
+  items: LibraryItem[];
+  books: Book[];
+  papers: ResearchPaper[];
+}) {
+  return (
+    <section>
+      <h2 className="font-serif text-2xl text-navy">{title}</h2>
+      <div className="mt-4">
+        <ItemList items={items} books={books} papers={papers} empty={empty} />
+      </div>
+    </section>
+  );
+}
+
+function ItemList({
+  items,
+  books,
+  papers,
+  empty,
+}: {
+  items: LibraryItem[];
+  books: Book[];
+  papers: ResearchPaper[];
+  empty: string;
+}) {
+  if (items.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-line bg-white py-16 text-center text-muted">
+        {empty}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {items.map((item) => (
+        <LibraryRow
+          key={`${item.kind}-${item.resourceId}`}
+          item={item}
+          book={books.find((entry) => entry._id === item.resourceId)}
+          paper={papers.find((entry) => entry._id === item.resourceId)}
+        />
+      ))}
     </div>
   );
 }

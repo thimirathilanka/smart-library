@@ -23,7 +23,7 @@ export default async function LibraryPage() {
       </p>
       <h1 className="mt-2 font-serif text-4xl text-navy">My Library</h1>
       <p className="mt-2 text-muted">
-        Saved papers, reading history, and favorites for {name}.
+        Favorites and saved titles for {name}, plus reading history.
       </p>
       <div className="mt-8">
         <MyLibrary library={library} books={books} papers={papers} />
