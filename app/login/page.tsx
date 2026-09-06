@@ -15,7 +15,7 @@ export default async function LoginPage({
       </p>
       <h1 className="mt-2 font-serif text-4xl text-navy">Sign in</h1>
       <p className="mt-2 text-muted">
-        Access your shelf, reading history, and members-only titles.
+        Access your shelf, reading history, and premium titles.
       </p>
       <LoginForm callbackUrl={callbackUrl} />
     </div>

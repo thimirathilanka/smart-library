@@ -38,7 +38,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         id: session.user.id,
         name: session.user.name ?? "Member",
         email: session.user.email ?? "",
-        role: session.user.role,
+        plan: session.user.plan ?? "free",
+        isAdmin: Boolean(session.user.isAdmin),
       }
     : null;
 

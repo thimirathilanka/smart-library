@@ -32,11 +32,11 @@ Open [http://localhost:3000](http://localhost:3000).
 
 Password for every seeded member: `library123`
 
-| Role | Email |
+| Plan | Email |
 | --- | --- |
-| Admin | `admin@nextgen.library` |
-| Faculty | `a.chen@nextgen.library` |
-| Librarian | `l.haddad@nextgen.library` |
-| Student | `j.adeyemi@nextgen.library` |
+| Premium (admin) | `admin@nextgen.library` |
+| Premium | `a.chen@nextgen.library` |
+| Premium (admin) | `l.haddad@nextgen.library` |
+| Free | `j.adeyemi@nextgen.library` |
 
-New readers can use **Register**. Admin and Librarian accounts can open `/admin`.
+New readers can use **Register** (free plan). Admin accounts can open `/admin`. Premium members can read premium titles.

@@ -17,8 +17,13 @@ export default async function BookReaderPage({
   const book = await getBook(id);
   if (!book) notFound();
   const session = await auth();
-  if (book.access === "members" && !session?.user) {
-    redirect(`/login?callbackUrl=/books/${book._id}/read`);
+  if (book.access === "members") {
+    if (!session?.user) {
+      redirect(`/login?callbackUrl=/books/${book._id}/read`);
+    }
+    if (!session.user.isAdmin && session.user.plan !== "premium") {
+      redirect(`/books/${book._id}`);
+    }
   }
 
   return (

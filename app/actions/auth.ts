@@ -13,8 +13,8 @@ import type { AccessType, ResourceKind } from "@/lib/types";
 
 export type AuthState = { error?: string; success?: string };
 
-function staff(role?: string) {
-  return role === "Admin" || role === "Librarian";
+function staff(isAdmin?: boolean) {
+  return Boolean(isAdmin);
 }
 
 export async function loginAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
@@ -36,7 +36,6 @@ export async function registerAction(_prev: AuthState, formData: FormData): Prom
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
-  const department = String(formData.get("department") ?? "").trim() || "General";
 
   if (!name || !email || password.length < 8) {
     return { error: "Name, email, and a password of at least 8 characters are required." };
@@ -49,8 +48,8 @@ export async function registerAction(_prev: AuthState, formData: FormData): Prom
     _id: `u-${crypto.randomUUID()}`,
     name,
     email,
-    role: "Student",
-    department,
+    plan: "free",
+    isAdmin: false,
     joinedAt: new Date().toISOString().slice(0, 10),
     reads: 0,
     status: "Active",
@@ -87,7 +86,7 @@ function slugId(prefix: string, title: string) {
 
 export async function createResourceAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const session = await auth();
-  if (!staff(session?.user?.role)) return { error: "You do not have permission to add resources." };
+  if (!staff(session?.user?.isAdmin)) return { error: "You do not have permission to add resources." };
 
   const kind = String(formData.get("kind") ?? "book");
   const title = String(formData.get("title") ?? "").trim();

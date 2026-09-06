@@ -47,14 +47,14 @@ export type ResearchPaper = {
   reads: number;
 };
 
-export type MemberRole = "Student" | "Faculty" | "Librarian" | "Admin";
+export type MemberPlan = "free" | "premium";
 
 export type Member = {
   _id: string;
   name: string;
   email: string;
-  role: MemberRole;
-  department: string;
+  plan: MemberPlan;
+  isAdmin: boolean;
   joinedAt: string;
   reads: number;
   status: "Active" | "Invited" | "Suspended";
@@ -83,7 +83,8 @@ export type SessionUser = {
   id: string;
   name: string;
   email: string;
-  role: MemberRole;
+  plan: MemberPlan;
+  isAdmin: boolean;
 };
 
 export type MonthlyReads = {

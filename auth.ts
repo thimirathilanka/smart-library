@@ -26,7 +26,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           id: member._id,
           name: member.name,
           email: member.email,
-          role: member.role,
+          plan: member.plan ?? "free",
+          isAdmin: Boolean(member.isAdmin),
         };
       },
     }),

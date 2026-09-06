@@ -1,5 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
-import type { MemberRole } from "@/lib/types";
+import type { MemberPlan } from "@/lib/types";
 
 export const authConfig = {
   trustHost: true,
@@ -11,9 +11,8 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request }) {
       const { pathname } = request.nextUrl;
-      const role = (auth?.user as { role?: MemberRole } | undefined)?.role;
+      const user = auth?.user as { isAdmin?: boolean } | undefined;
       const isLoggedIn = Boolean(auth?.user);
-      const isStaff = role === "Admin" || role === "Librarian";
       const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/register");
 
       if (isAuthPage) {
@@ -21,7 +20,7 @@ export const authConfig = {
         return true;
       }
       if (pathname.startsWith("/library") && !isLoggedIn) return false;
-      if (pathname.startsWith("/admin") && !isStaff) {
+      if (pathname.startsWith("/admin") && !user?.isAdmin) {
         if (!isLoggedIn) return false;
         return Response.redirect(new URL("/", request.nextUrl));
       }
@@ -30,14 +29,16 @@ export const authConfig = {
     jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = (user as { role?: MemberRole }).role;
+        token.plan = user.plan;
+        token.isAdmin = user.isAdmin;
       }
       return token;
     },
     session({ session, token }) {
       if (session.user) {
         session.user.id = String(token.id ?? "");
-        session.user.role = (token.role as MemberRole) ?? "Student";
+        session.user.plan = (token.plan as MemberPlan) ?? "free";
+        session.user.isAdmin = Boolean(token.isAdmin);
       }
       return session;
     },

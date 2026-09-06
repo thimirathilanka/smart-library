@@ -13,7 +13,7 @@ export function Navbar({ user }: { user: SessionUser | null }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const isStaff = user?.role === "Admin" || user?.role === "Librarian";
+  const isStaff = Boolean(user?.isAdmin);
 
   const links = [
     { href: "/", label: "Dashboard" },
@@ -96,7 +96,7 @@ export function Navbar({ user }: { user: SessionUser | null }) {
               </span>
               <span className="text-xs leading-tight">
                 <span className="block font-medium text-navy">{user.name}</span>
-                <span className="text-muted">{user.role}</span>
+                <span className="text-muted capitalize">{user.plan}</span>
               </span>
               <form action={signOutAction}>
                 <button type="submit" className="px-2 text-xs text-navy-mid hover:text-navy">

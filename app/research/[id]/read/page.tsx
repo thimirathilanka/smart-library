@@ -19,8 +19,13 @@ export default async function PaperReaderPage({
   const paper = await getPaper(id);
   if (!paper) notFound();
   const session = await auth();
-  if (paper.access === "members" && !session?.user) {
-    redirect(`/login?callbackUrl=/research/${paper._id}/read`);
+  if (paper.access === "members") {
+    if (!session?.user) {
+      redirect(`/login?callbackUrl=/research/${paper._id}/read`);
+    }
+    if (!session.user.isAdmin && session.user.plan !== "premium") {
+      redirect(`/research/${paper._id}`);
+    }
   }
 
   return (

@@ -37,7 +37,6 @@ export function RegisterForm() {
     <form action={action} className="mt-8 space-y-4">
       <Field label="Full name" name="name" autoComplete="name" />
       <Field label="Email" name="email" type="email" autoComplete="email" />
-      <Field label="Department" name="department" />
       <Field label="Password" name="password" type="password" autoComplete="new-password" />
       {state.error ? <p className="text-sm text-red-700">{state.error}</p> : null}
       <button
