@@ -53,6 +53,7 @@ export type Member = {
   email: string;
   isMember: boolean;
   isAdmin: boolean;
+  membershipExpiresAt?: string;
   joinedAt: string;
   reads: number;
   status: "Active" | "Invited" | "Suspended";

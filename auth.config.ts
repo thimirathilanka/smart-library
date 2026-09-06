@@ -18,7 +18,12 @@ export const authConfig = {
         if (isLoggedIn) return Response.redirect(new URL("/", request.nextUrl));
         return true;
       }
-      if (pathname.startsWith("/library") && !isLoggedIn) return false;
+      if (
+        (pathname.startsWith("/library") || pathname.startsWith("/membership")) &&
+        !isLoggedIn
+      ) {
+        return false;
+      }
       if (pathname.startsWith("/admin") && !user?.isAdmin) {
         if (!isLoggedIn) return false;
         return Response.redirect(new URL("/", request.nextUrl));

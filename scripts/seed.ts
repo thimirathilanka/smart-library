@@ -52,7 +52,12 @@ async function seed() {
           passwordHash,
           library: member._id === "u-amelia" ? userLibrary : emptyLibrary,
         },
-        $unset: { department: "", role: "", plan: "" },
+        $unset: {
+          department: "",
+          role: "",
+          plan: "",
+          ...(member.isMember ? {} : { membershipExpiresAt: "" }),
+        },
       },
       upsert: true,
     },

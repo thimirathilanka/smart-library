@@ -13,6 +13,7 @@ export function publicMember(member: MemberRecord): Member {
     email: member.email,
     isMember: Boolean(member.isMember),
     isAdmin: Boolean(member.isAdmin),
+    membershipExpiresAt: member.membershipExpiresAt,
     joinedAt: member.joinedAt,
     reads: member.reads,
     status: member.status,

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { BookOpen, Menu, Search, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/format";
 import { signOutAction } from "@/app/actions/auth";
 import type { SessionUser } from "@/lib/types";
@@ -19,7 +19,6 @@ export function Navbar({ user }: { user: SessionUser | null }) {
     { href: "/", label: "Dashboard" },
     { href: "/books", label: "Books" },
     { href: "/research", label: "Research Papers" },
-    { href: "/library", label: "My Library" },
     ...(isStaff ? [{ href: "/admin", label: "Admin" }] : []),
   ];
 
@@ -30,13 +29,6 @@ export function Navbar({ user }: { user: SessionUser | null }) {
     router.push(value ? `${target}?q=${encodeURIComponent(value)}` : target);
     setOpen(false);
   }
-
-  const initials = user?.name
-    ?.split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 
   return (
     <header className="glass-nav sticky top-0 z-40">
@@ -90,20 +82,7 @@ export function Navbar({ user }: { user: SessionUser | null }) {
 
         <div className="ml-auto flex items-center gap-3 md:ml-0">
           {user ? (
-            <div className="hidden items-center gap-2 rounded-full border border-line bg-white/70 py-1 pr-2 pl-1 sm:flex">
-              <span className="flex size-7 items-center justify-center rounded-full bg-navy text-[11px] font-semibold text-white">
-                {initials}
-              </span>
-              <span className="text-xs leading-tight">
-                <span className="block font-medium text-navy">{user.name}</span>
-                <span className="text-muted">{user.isMember ? "Member" : "Not a member"}</span>
-              </span>
-              <form action={signOutAction}>
-                <button type="submit" className="px-2 text-xs text-navy-mid hover:text-navy">
-                  Sign out
-                </button>
-              </form>
-            </div>
+            <AccountMenu user={user} />
           ) : (
             <div className="hidden items-center gap-2 sm:flex">
               <Link href="/login" className="text-sm text-navy-mid hover:text-navy">
@@ -149,13 +128,7 @@ export function Navbar({ user }: { user: SessionUser | null }) {
                 {link.label}
               </Link>
             ))}
-            {user ? (
-              <form action={signOutAction}>
-                <button type="submit" className="w-full rounded-lg px-3 py-2 text-left text-sm text-navy hover:bg-paper">
-                  Sign out
-                </button>
-              </form>
-            ) : (
+            {!user ? (
               <>
                 <Link href="/login" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm text-navy hover:bg-paper">
                   Sign in
@@ -164,10 +137,102 @@ export function Navbar({ user }: { user: SessionUser | null }) {
                   Register
                 </Link>
               </>
-            )}
+            ) : null}
           </div>
         </div>
       ) : null}
     </header>
+  );
+}
+
+function AccountMenu({ user }: { user: SessionUser }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function onPointerDown(event: MouseEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const initials = user.name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen((value) => !value)}
+        className="flex items-center gap-2 rounded-full border border-line bg-white/70 py-1 pr-3 pl-1"
+      >
+        <span className="flex size-7 items-center justify-center rounded-full bg-navy text-[11px] font-semibold text-white">
+          {initials}
+        </span>
+        <span className="max-w-[9rem] truncate text-left text-xs font-medium text-navy sm:max-w-[12rem]">
+          {user.name}
+        </span>
+      </button>
+
+      {open ? (
+        <div
+          role="menu"
+          className="absolute top-full right-0 z-50 mt-2 w-72 rounded-2xl border border-line bg-white p-4 shadow-lg"
+        >
+          <p className="font-medium text-navy">{user.name}</p>
+          <p className="truncate text-xs text-muted">{user.email}</p>
+          <p className="mt-1 text-xs text-navy-mid">
+            {user.isMember ? "Member" : "Free plan"}
+          </p>
+          <div className="mt-4 flex flex-col gap-2">
+            <Link
+              href="/membership"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="rounded-full bg-navy px-4 py-2 text-center text-sm font-medium text-white hover:bg-navy-mid"
+            >
+              Membership
+            </Link>
+            <Link
+              href="/library"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="rounded-full border border-line px-4 py-2 text-center text-sm font-medium text-navy hover:bg-paper"
+            >
+              My Library
+            </Link>
+            <form action={signOutAction}>
+              <button
+                type="submit"
+                role="menuitem"
+                className="w-full rounded-full px-4 py-2 text-sm text-navy-mid hover:bg-paper hover:text-navy"
+              >
+                Sign out
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }

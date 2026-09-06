@@ -21,6 +21,14 @@ export function formatDate(iso: string) {
   }).format(new Date(`${iso}T00:00:00`));
 }
 
+export function formatLongDate(iso: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(`${iso}T00:00:00`));
+}
+
 export function yearOptions(min: number, max: number) {
   const years: number[] = [];
   for (let year = max; year >= min; year -= 1) years.push(year);
