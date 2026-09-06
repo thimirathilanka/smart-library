@@ -16,7 +16,7 @@ export function Navbar({ user }: { user: SessionUser | null }) {
   const isStaff = Boolean(user?.isAdmin);
 
   const links = [
-    { href: "/", label: "Dashboard" },
+    { href: "/", label: "Home" },
     { href: "/books", label: "Books" },
     { href: "/research", label: "Research Papers" },
     ...(isStaff ? [{ href: "/admin", label: "Admin" }] : []),
