@@ -1,4 +1,5 @@
 import { BookOpen, FileText, Users, Eye } from "lucide-react";
+import { HeroGrid } from "@/components/home/HeroGrid";
 import { HeroSearch } from "@/components/home/HeroSearch";
 import { FeaturedCarousel } from "@/components/home/FeaturedCarousel";
 import { SectionHeader } from "@/components/ui/SectionHeader";
@@ -28,7 +29,7 @@ export default async function HomePage() {
   return (
     <div>
       <section className="relative overflow-hidden bg-navy text-white">
-        <div className="hero-grid absolute inset-0 opacity-70" />
+        <HeroGrid />
         <div className="absolute -top-24 right-10 h-72 w-72 rounded-full bg-navy-soft/40 blur-3xl" />
         <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
           <p className="text-center text-xs font-semibold tracking-[0.28em] text-gold uppercase">

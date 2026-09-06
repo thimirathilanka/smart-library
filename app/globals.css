@@ -57,6 +57,36 @@ body {
   background-size: 48px 48px;
 }
 
+.hero-grid-glow {
+  opacity: 0;
+  background-image:
+    linear-gradient(rgba(201, 162, 39, 0.55) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(201, 162, 39, 0.55) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(
+    circle 180px at var(--glow-x, 50%) var(--glow-y, 50%),
+    #000 0%,
+    transparent 70%
+  );
+  -webkit-mask-image: radial-gradient(
+    circle 180px at var(--glow-x, 50%) var(--glow-y, 50%),
+    #000 0%,
+    transparent 70%
+  );
+  filter: drop-shadow(0 0 8px rgba(201, 162, 39, 0.65));
+  transition: opacity 0.2s ease;
+}
+
+.hero-grid-wrap[data-active="true"] .hero-grid-glow {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-grid-glow {
+    display: none;
+  }
+}
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
