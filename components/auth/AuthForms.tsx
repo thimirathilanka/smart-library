@@ -10,7 +10,13 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
   return (
     <form action={action} className="mt-8 space-y-4">
       <input type="hidden" name="callbackUrl" value={callbackUrl} />
-      <Field label="Email" name="email" type="email" autoComplete="email" />
+      <Field
+        label="Email"
+        name="email"
+        type="email"
+        autoComplete="email"
+        defaultValue={state.values?.email}
+      />
       <Field label="Password" name="password" type="password" autoComplete="current-password" />
       {state.error ? <p className="text-sm text-red-700">{state.error}</p> : null}
       <button
@@ -35,8 +41,19 @@ export function RegisterForm() {
 
   return (
     <form action={action} className="mt-8 space-y-4">
-      <Field label="Full name" name="name" autoComplete="name" />
-      <Field label="Email" name="email" type="email" autoComplete="email" />
+      <Field
+        label="Full name"
+        name="name"
+        autoComplete="name"
+        defaultValue={state.values?.name}
+      />
+      <Field
+        label="Email"
+        name="email"
+        type="email"
+        autoComplete="email"
+        defaultValue={state.values?.email}
+      />
       <Field label="Password" name="password" type="password" autoComplete="new-password" />
       {state.error ? <p className="text-sm text-red-700">{state.error}</p> : null}
       <button
@@ -61,20 +78,25 @@ function Field({
   name,
   type = "text",
   autoComplete,
+  defaultValue,
 }: {
   label: string;
   name: string;
   type?: string;
   autoComplete?: string;
+  defaultValue?: string;
 }) {
   return (
     <label className="block text-xs font-semibold tracking-wide text-muted uppercase">
       {label}
       <input
+        key={`${name}-${defaultValue ?? ""}`}
         name={name}
         type={type}
         required
+        minLength={type === "password" ? 8 : undefined}
         autoComplete={autoComplete}
+        defaultValue={defaultValue}
         className="mt-1.5 w-full rounded-lg border border-line bg-white px-3 py-2.5 text-sm font-normal text-ink outline-none focus:border-navy-soft"
       />
     </label>

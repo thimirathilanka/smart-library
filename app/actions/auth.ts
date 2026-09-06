@@ -11,7 +11,11 @@ import { createMember, getMemberByEmail, recordReading, toggleLibraryList } from
 import { createPaper, incrementPaperReads } from "@/lib/data/papers";
 import type { AccessType, ResourceKind } from "@/lib/types";
 
-export type AuthState = { error?: string; success?: string };
+export type AuthState = {
+  error?: string;
+  success?: string;
+  values?: { name?: string; email?: string };
+};
 
 function staff(isAdmin?: boolean) {
   return Boolean(isAdmin);
@@ -25,7 +29,7 @@ export async function loginAction(_prev: AuthState, formData: FormData): Promise
     await signIn("credentials", { email, password, redirectTo: callbackUrl });
   } catch (error) {
     if (error instanceof AuthError) {
-      return { error: "Invalid email or password." };
+      return { error: "Invalid email or password.", values: { email } };
     }
     throw error;
   }
@@ -38,11 +42,16 @@ export async function registerAction(_prev: AuthState, formData: FormData): Prom
   const password = String(formData.get("password") ?? "");
 
   if (!name || !email || password.length < 8) {
-    return { error: "Name, email, and a password of at least 8 characters are required." };
+    return {
+      error: "Name, email, and a password of at least 8 characters are required.",
+      values: { name, email },
+    };
   }
 
   const existing = await getMemberByEmail(email);
-  if (existing) return { error: "An account with that email already exists." };
+  if (existing) {
+    return { error: "An account with that email already exists.", values: { name, email } };
+  }
 
   await createMember({
     _id: `u-${crypto.randomUUID()}`,
@@ -61,7 +70,7 @@ export async function registerAction(_prev: AuthState, formData: FormData): Prom
     await signIn("credentials", { email, password, redirectTo: "/" });
   } catch (error) {
     if (error instanceof AuthError) {
-      return { error: "Account created. Please sign in." };
+      return { error: "Account created. Please sign in.", values: { name, email } };
     }
     throw error;
   }
