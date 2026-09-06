@@ -47,13 +47,11 @@ export type ResearchPaper = {
   reads: number;
 };
 
-export type MemberPlan = "free" | "premium";
-
 export type Member = {
   _id: string;
   name: string;
   email: string;
-  plan: MemberPlan;
+  isMember: boolean;
   isAdmin: boolean;
   joinedAt: string;
   reads: number;
@@ -83,7 +81,7 @@ export type SessionUser = {
   id: string;
   name: string;
   email: string;
-  plan: MemberPlan;
+  isMember: boolean;
   isAdmin: boolean;
 };
 

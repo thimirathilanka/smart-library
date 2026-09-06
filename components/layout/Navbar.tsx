@@ -96,7 +96,7 @@ export function Navbar({ user }: { user: SessionUser | null }) {
               </span>
               <span className="text-xs leading-tight">
                 <span className="block font-medium text-navy">{user.name}</span>
-                <span className="text-muted capitalize">{user.plan}</span>
+                <span className="text-muted">{user.isMember ? "Member" : "Not a member"}</span>
               </span>
               <form action={signOutAction}>
                 <button type="submit" className="px-2 text-xs text-navy-mid hover:text-navy">

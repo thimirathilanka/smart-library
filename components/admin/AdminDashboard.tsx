@@ -195,7 +195,7 @@ function UsersTable({ members }: { members: AdminCatalog["members"] }) {
         <thead className="text-xs tracking-wide text-muted uppercase">
           <tr>
             <th className="py-2">Name</th>
-            <th>Plan</th>
+            <th>Membership</th>
             <th>Status</th>
             <th>Reads</th>
           </tr>
@@ -207,7 +207,7 @@ function UsersTable({ members }: { members: AdminCatalog["members"] }) {
                 <p className="font-medium text-navy">{member.name}</p>
                 <p className="text-xs text-muted">{member.email}</p>
               </td>
-              <td className="capitalize">{member.plan}</td>
+              <td>{member.isMember ? "Member" : "Not a member"}</td>
               <td>{member.status}</td>
               <td>{member.reads}</td>
             </tr>
@@ -271,7 +271,7 @@ function UploadForm() {
             className="mt-1.5 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm font-normal text-ink"
           >
             <option value="open">Open Access</option>
-            <option value="members">Premium</option>
+            <option value="members">Members only</option>
           </select>
         </label>
         <label className="sm:col-span-2 text-xs font-semibold tracking-wide text-muted uppercase">
@@ -328,7 +328,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 function AccessChip({ access }: { access: AccessType }) {
   return (
     <span className="text-xs text-navy-mid">
-      {access === "open" ? "Open Access" : "Premium"}
+      {access === "open" ? "Open Access" : "Members only"}
     </span>
   );
 }

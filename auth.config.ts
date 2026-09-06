@@ -1,5 +1,4 @@
 import type { NextAuthConfig } from "next-auth";
-import type { MemberPlan } from "@/lib/types";
 
 export const authConfig = {
   trustHost: true,
@@ -29,7 +28,7 @@ export const authConfig = {
     jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.plan = user.plan;
+        token.isMember = user.isMember;
         token.isAdmin = user.isAdmin;
       }
       return token;
@@ -37,7 +36,7 @@ export const authConfig = {
     session({ session, token }) {
       if (session.user) {
         session.user.id = String(token.id ?? "");
-        session.user.plan = (token.plan as MemberPlan) ?? "free";
+        session.user.isMember = Boolean(token.isMember);
         session.user.isAdmin = Boolean(token.isAdmin);
       }
       return session;

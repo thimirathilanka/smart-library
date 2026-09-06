@@ -57,7 +57,7 @@ export async function registerAction(_prev: AuthState, formData: FormData): Prom
     _id: `u-${crypto.randomUUID()}`,
     name,
     email,
-    plan: "free",
+    isMember: false,
     isAdmin: false,
     joinedAt: new Date().toISOString().slice(0, 10),
     reads: 0,

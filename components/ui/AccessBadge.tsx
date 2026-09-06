@@ -12,7 +12,7 @@ export function AccessBadge({ access }: { access: AccessType }) {
           : "bg-navy/8 text-navy-mid ring-1 ring-navy/15",
       )}
     >
-      {isOpen ? "Open Access" : "Premium"}
+      {isOpen ? "Open Access" : "Members only"}
     </span>
   );
 }

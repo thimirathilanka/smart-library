@@ -82,7 +82,7 @@ export function BookCatalog({
           onChange={(value) => setAccess(value as "all" | AccessType)}
           options={[
             { value: "open", label: "Open Access" },
-            { value: "members", label: "Premium" },
+            { value: "members", label: "Members only" },
           ]}
         />
         <button

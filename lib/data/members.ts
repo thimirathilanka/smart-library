@@ -11,7 +11,7 @@ export function publicMember(member: MemberRecord): Member {
     _id: member._id,
     name: member.name,
     email: member.email,
-    plan: member.plan === "premium" ? "premium" : "free",
+    isMember: Boolean(member.isMember),
     isAdmin: Boolean(member.isAdmin),
     joinedAt: member.joinedAt,
     reads: member.reads,

@@ -23,7 +23,7 @@ export default async function PaperReaderPage({
     if (!session?.user) {
       redirect(`/login?callbackUrl=/research/${paper._id}/read`);
     }
-    if (!session.user.isAdmin && session.user.plan !== "premium") {
+    if (!session.user.isAdmin && !session.user.isMember) {
       redirect(`/research/${paper._id}`);
     }
   }

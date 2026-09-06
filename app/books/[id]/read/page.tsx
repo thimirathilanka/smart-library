@@ -21,7 +21,7 @@ export default async function BookReaderPage({
     if (!session?.user) {
       redirect(`/login?callbackUrl=/books/${book._id}/read`);
     }
-    if (!session.user.isAdmin && session.user.plan !== "premium") {
+    if (!session.user.isAdmin && !session.user.isMember) {
       redirect(`/books/${book._id}`);
     }
   }
