@@ -4,7 +4,7 @@ export const metadata = { title: "Create account" };
 
 export default function RegisterPage() {
   return (
-    <div className="mx-auto max-w-md px-4 py-16 sm:px-6">
+    <div className="mx-auto max-w-lg px-4 py-16 sm:px-6">
       <p className="text-xs font-semibold tracking-[0.2em] text-navy-soft uppercase">
         Members
       </p>

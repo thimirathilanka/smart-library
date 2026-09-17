@@ -14,7 +14,13 @@ import type { AccessType, ResourceKind } from "@/lib/types";
 export type AuthState = {
   error?: string;
   success?: string;
-  values?: { name?: string; email?: string };
+  values?: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    password?: string;
+    confirmPassword?: string;
+  };
 };
 
 function staff(isAdmin?: boolean) {
@@ -37,20 +43,31 @@ export async function loginAction(_prev: AuthState, formData: FormData): Promise
 }
 
 export async function registerAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
-  const name = String(formData.get("name") ?? "").trim();
+  const firstName = String(formData.get("firstName") ?? "").trim();
+  const lastName = String(formData.get("lastName") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+  const values = { firstName, lastName, email };
+  const name = `${firstName} ${lastName}`.replace(/\s+/g, " ").trim();
 
-  if (!name || !email || password.length < 8) {
+  if (!firstName || !lastName || !email || password.length < 8) {
     return {
-      error: "Name, email, and a password of at least 8 characters are required.",
-      values: { name, email },
+      error: "First name, last name, email, and a password of at least 8 characters are required.",
+      values,
+    };
+  }
+
+  if (password !== confirmPassword) {
+    return {
+      error: "Passwords do not match.",
+      values: { ...values, password, confirmPassword },
     };
   }
 
   const existing = await getMemberByEmail(email);
   if (existing) {
-    return { error: "An account with that email already exists.", values: { name, email } };
+    return { error: "An account with that email already exists.", values };
   }
 
   await createMember({
@@ -70,7 +87,7 @@ export async function registerAction(_prev: AuthState, formData: FormData): Prom
     await signIn("credentials", { email, password, redirectTo: "/" });
   } catch (error) {
     if (error instanceof AuthError) {
-      return { error: "Account created. Please sign in.", values: { name, email } };
+      return { error: "Account created. Please sign in.", values };
     }
     throw error;
   }
