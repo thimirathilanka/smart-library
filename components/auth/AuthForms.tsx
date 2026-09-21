@@ -40,17 +40,32 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
 
 export function RegisterForm() {
   const [state, action, pending] = useActionState(registerAction, {} as AuthState);
+  const [firstName, setFirstName] = useState(state.values?.firstName ?? "");
+  const [lastName, setLastName] = useState(state.values?.lastName ?? "");
+  const [email, setEmail] = useState(state.values?.email ?? "");
+  const [emailTouched, setEmailTouched] = useState(false);
   const [password, setPassword] = useState(state.values?.password ?? "");
   const [confirmPassword, setConfirmPassword] = useState(state.values?.confirmPassword ?? "");
 
   useEffect(() => {
+    if (state.values?.firstName != null) setFirstName(state.values.firstName);
+    if (state.values?.lastName != null) setLastName(state.values.lastName);
+    if (state.values?.email != null) setEmail(state.values.email);
     if (state.values?.password != null) setPassword(state.values.password);
     if (state.values?.confirmPassword != null) setConfirmPassword(state.values.confirmPassword);
-  }, [state.values?.password, state.values?.confirmPassword]);
+  }, [
+    state.values?.firstName,
+    state.values?.lastName,
+    state.values?.email,
+    state.values?.password,
+    state.values?.confirmPassword,
+  ]);
 
+  const namesFilled = firstName.trim().length > 0 && lastName.trim().length > 0;
+  const emailValid = isEmail(email);
   const longEnough = password.length >= 8;
   const matches = longEnough && password === confirmPassword;
-  const canSubmit = longEnough && matches && !pending;
+  const canSubmit = namesFilled && emailValid && longEnough && matches && !pending;
 
   return (
     <form action={action} className="mt-8 space-y-4">
@@ -59,13 +74,17 @@ export function RegisterForm() {
           label="First name"
           name="firstName"
           autoComplete="given-name"
-          defaultValue={state.values?.firstName}
+          value={firstName}
+          onChange={setFirstName}
+          requiredMark
         />
         <Field
           label="Last name"
           name="lastName"
           autoComplete="family-name"
-          defaultValue={state.values?.lastName}
+          value={lastName}
+          onChange={setLastName}
+          requiredMark
         />
       </div>
       <Field
@@ -73,8 +92,12 @@ export function RegisterForm() {
         name="email"
         type="email"
         autoComplete="email"
-        defaultValue={state.values?.email}
+        value={email}
+        onChange={setEmail}
+        onBlur={() => setEmailTouched(true)}
+        requiredMark
       />
+      {emailTouched && !emailValid ? <Hint ok={false} text="Enter a valid email" /> : null}
       <RegisterPasswordInput
         label="Password"
         name="password"
@@ -220,30 +243,50 @@ function PasswordField({
   );
 }
 
+function isEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
 function Field({
   label,
   name,
   type = "text",
   autoComplete,
   defaultValue,
+  value,
+  onChange,
+  onBlur,
+  requiredMark = false,
 }: {
   label: string;
   name: string;
   type?: string;
   autoComplete?: string;
   defaultValue?: string;
+  value?: string;
+  onChange?: (value: string) => void;
+  onBlur?: () => void;
+  requiredMark?: boolean;
 }) {
+  const controlled = value != null && onChange != null;
+
   return (
     <label className="block text-xs font-semibold tracking-wide text-muted uppercase">
       {label}
+      {requiredMark && !(controlled ? value : defaultValue ?? "").trim() ? (
+        <span className="text-red-700"> *</span>
+      ) : null}
       <input
-        key={`${name}-${defaultValue ?? ""}`}
+        key={controlled ? name : `${name}-${defaultValue ?? ""}`}
         name={name}
         type={type}
         required
         minLength={type === "password" ? 8 : undefined}
         autoComplete={autoComplete}
-        defaultValue={defaultValue}
+        value={controlled ? value : undefined}
+        defaultValue={controlled ? undefined : defaultValue}
+        onChange={controlled ? (event) => onChange(event.target.value) : undefined}
+        onBlur={onBlur}
         className="mt-1.5 w-full rounded-lg border border-line bg-white px-3 py-2.5 text-sm font-normal text-ink outline-none focus:border-navy-soft"
       />
     </label>
