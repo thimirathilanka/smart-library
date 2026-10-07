@@ -37,6 +37,27 @@ export async function getMemberById(id: string) {
   return members.findOne({ _id: id });
 }
 
+export async function grantMembership(memberId: string) {
+  const { members } = await collections();
+  const expiresAt = new Date();
+  expiresAt.setUTCDate(expiresAt.getUTCDate() + 30);
+  const membershipExpiresAt = expiresAt.toISOString().slice(0, 10);
+  const result = await members.updateOne(
+    { _id: memberId },
+    { $set: { isMember: true, membershipExpiresAt } },
+  );
+  return result.matchedCount > 0 ? membershipExpiresAt : null;
+}
+
+export async function cancelMembership(memberId: string) {
+  const { members } = await collections();
+  const result = await members.updateOne(
+    { _id: memberId },
+    { $set: { isMember: false }, $unset: { membershipExpiresAt: "" } },
+  );
+  return result.matchedCount > 0;
+}
+
 export async function createMember(member: MemberRecord) {
   const { members } = await collections();
   await members.insertOne({
