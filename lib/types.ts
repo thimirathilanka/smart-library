@@ -2,6 +2,8 @@ export type AccessType = "open" | "members";
 
 export type ResourceKind = "book" | "paper";
 
+export type PublicationStatus = "pending" | "published" | "rejected";
+
 export type Book = {
   _id: string;
   title: string;
@@ -26,6 +28,9 @@ export type Book = {
   addedAt: string;
   reads: number;
   featured?: boolean;
+  publicationStatus?: PublicationStatus;
+  submittedBy?: string;
+  reviewNote?: string;
 };
 
 export type ResearchPaper = {
@@ -45,6 +50,9 @@ export type ResearchPaper = {
   access: AccessType;
   addedAt: string;
   reads: number;
+  publicationStatus?: PublicationStatus;
+  submittedBy?: string;
+  reviewNote?: string;
 };
 
 export type Member = {
@@ -53,6 +61,7 @@ export type Member = {
   email: string;
   isMember: boolean;
   isAdmin: boolean;
+  isAuthor: boolean;
   membershipExpiresAt?: string;
   joinedAt: string;
   reads: number;
@@ -84,6 +93,7 @@ export type SessionUser = {
   email: string;
   isMember: boolean;
   isAdmin: boolean;
+  isAuthor: boolean;
 };
 
 export type MonthlyReads = {

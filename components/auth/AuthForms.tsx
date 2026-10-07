@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Check, Eye, EyeOff, X } from "lucide-react";
 import { loginAction, registerAction, type AuthState } from "@/app/actions/auth";
@@ -46,20 +46,19 @@ export function RegisterForm() {
   const [emailTouched, setEmailTouched] = useState(false);
   const [password, setPassword] = useState(state.values?.password ?? "");
   const [confirmPassword, setConfirmPassword] = useState(state.values?.confirmPassword ?? "");
-
-  useEffect(() => {
+  const [accountType, setAccountType] = useState<"reader" | "author">(
+    state.values?.accountType === "author" ? "author" : "reader",
+  );
+  const [syncedValues, setSyncedValues] = useState(state.values);
+  if (state.values !== syncedValues) {
+    setSyncedValues(state.values);
     if (state.values?.firstName != null) setFirstName(state.values.firstName);
     if (state.values?.lastName != null) setLastName(state.values.lastName);
     if (state.values?.email != null) setEmail(state.values.email);
     if (state.values?.password != null) setPassword(state.values.password);
     if (state.values?.confirmPassword != null) setConfirmPassword(state.values.confirmPassword);
-  }, [
-    state.values?.firstName,
-    state.values?.lastName,
-    state.values?.email,
-    state.values?.password,
-    state.values?.confirmPassword,
-  ]);
+    if (state.values?.accountType != null) setAccountType(state.values.accountType);
+  }
 
   const namesFilled = firstName.trim().length > 0 && lastName.trim().length > 0;
   const emailValid = isEmail(email);
@@ -87,6 +86,37 @@ export function RegisterForm() {
           requiredMark
         />
       </div>
+      <fieldset>
+        <legend className="text-xs font-semibold tracking-wide text-muted uppercase">I am joining as</legend>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {(
+            [
+              ["reader", "Reader"],
+              ["author", "Author"],
+            ] as const
+          ).map(([value, label]) => (
+            <label
+              key={value}
+              className={cn(
+                "cursor-pointer rounded-full border px-3 py-2 text-center text-sm",
+                accountType === value
+                  ? "border-navy bg-navy text-white"
+                  : "border-line bg-white text-navy-mid",
+              )}
+            >
+              <input
+                type="radio"
+                name="accountType"
+                value={value}
+                checked={accountType === value}
+                onChange={() => setAccountType(value)}
+                className="sr-only"
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
       <Field
         label="Email"
         name="email"

@@ -13,6 +13,8 @@ export const config = {
     "/membership/:path*",
     "/admin",
     "/admin/:path*",
+    "/author",
+    "/author/:path*",
     "/login",
     "/register",
   ],

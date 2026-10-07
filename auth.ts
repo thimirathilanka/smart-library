@@ -28,6 +28,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: member.email,
           isMember: Boolean(member.isMember),
           isAdmin: Boolean(member.isAdmin),
+          isAuthor: Boolean(member.isAuthor),
         };
       },
     }),

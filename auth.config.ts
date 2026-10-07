@@ -10,7 +10,7 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request }) {
       const { pathname } = request.nextUrl;
-      const user = auth?.user as { isAdmin?: boolean } | undefined;
+      const user = auth?.user as { isAdmin?: boolean; isAuthor?: boolean } | undefined;
       const isLoggedIn = Boolean(auth?.user);
       const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/register");
 
@@ -19,10 +19,15 @@ export const authConfig = {
         return true;
       }
       if (
-        (pathname.startsWith("/library") || pathname.startsWith("/membership")) &&
+        (pathname.startsWith("/library") ||
+          pathname.startsWith("/membership") ||
+          pathname.startsWith("/author")) &&
         !isLoggedIn
       ) {
         return false;
+      }
+      if (pathname.startsWith("/author") && !user?.isAuthor) {
+        return Response.redirect(new URL("/", request.nextUrl));
       }
       if (pathname.startsWith("/admin") && !user?.isAdmin) {
         if (!isLoggedIn) return false;
@@ -35,6 +40,7 @@ export const authConfig = {
         token.id = user.id;
         token.isMember = user.isMember;
         token.isAdmin = user.isAdmin;
+        token.isAuthor = user.isAuthor;
       }
       return token;
     },
@@ -43,6 +49,7 @@ export const authConfig = {
         session.user.id = String(token.id ?? "");
         session.user.isMember = Boolean(token.isMember);
         session.user.isAdmin = Boolean(token.isAdmin);
+        session.user.isAuthor = Boolean(token.isAuthor);
       }
       return session;
     },
