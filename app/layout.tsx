@@ -40,6 +40,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         email: session.user.email ?? "",
         isMember: Boolean(session.user.isMember),
         isAdmin: Boolean(session.user.isAdmin),
+        isAuthor: Boolean(session.user.isAuthor),
       }
     : null;
 

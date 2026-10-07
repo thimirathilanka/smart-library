@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, CreditCard, LogOut, Mail, Menu, Search, X } from "lucide-react";
+import { BookOpen, CreditCard, LogOut, Mail, Menu, PenLine, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/format";
 import { signOutAction } from "@/app/actions/auth";
@@ -14,11 +14,13 @@ export function Navbar({ user }: { user: SessionUser | null }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const isStaff = Boolean(user?.isAdmin);
+  const isAuthor = Boolean(user?.isAuthor);
 
   const links = [
     { href: "/", label: "Home" },
     { href: "/books", label: "Books" },
     { href: "/research", label: "Research Papers" },
+    ...(isAuthor ? [{ href: "/author", label: "Author" }] : []),
     ...(isStaff ? [{ href: "/admin", label: "Admin" }] : []),
   ];
 
@@ -236,6 +238,17 @@ function AccountMenu({ user }: { user: SessionUser }) {
                 <BookOpen className="size-4 text-muted" />
                 My Library
               </Link>
+              {user.isAuthor ? (
+                <Link
+                  href="/author"
+                  role="menuitem"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 py-2.5 text-sm font-medium text-navy hover:bg-paper"
+                >
+                  <PenLine className="size-4 text-muted" />
+                  Author
+                </Link>
+              ) : null}
             </div>
           </div>
 

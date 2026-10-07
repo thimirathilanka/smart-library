@@ -16,19 +16,22 @@ import {
 import {
   BarChart3,
   BookOpen,
+  ClipboardCheck,
   FileText,
   Upload,
   Users,
 } from "lucide-react";
-import { createResourceAction, type AuthState } from "@/app/actions/auth";
+import { createResourceAction, publishResourceAction, rejectResourceAction } from "@/app/actions/admin";
+import { ResourceForm } from "@/components/catalog/ResourceForm";
 import { cn, formatNumber } from "@/lib/format";
-import type { AccessType, AdminCatalog } from "@/lib/types";
+import type { AccessType, AdminCatalog, PublicationStatus } from "@/lib/types";
 
 const sections = [
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "books", label: "Manage books", icon: BookOpen },
   { id: "papers", label: "Manage papers", icon: FileText },
   { id: "users", label: "Users", icon: Users },
+  { id: "review", label: "Review", icon: ClipboardCheck },
   { id: "upload", label: "Upload", icon: Upload },
 ] as const;
 
@@ -72,6 +75,9 @@ export function AdminDashboard({ catalog }: { catalog: AdminCatalog }) {
         {section === "books" ? <BooksTable books={books} /> : null}
         {section === "papers" ? <PapersTable papers={papers} /> : null}
         {section === "users" ? <UsersTable members={members} /> : null}
+        {section === "review" ? (
+          <ReviewPanel books={books} papers={papers} members={members} />
+        ) : null}
         {section === "upload" ? <UploadForm /> : null}
       </div>
     </div>
@@ -142,6 +148,7 @@ function BooksTable({ books }: { books: AdminCatalog["books"] }) {
             <th>Author</th>
             <th>Year</th>
             <th>Access</th>
+            <th>Status</th>
             <th>Reads</th>
           </tr>
         </thead>
@@ -152,6 +159,7 @@ function BooksTable({ books }: { books: AdminCatalog["books"] }) {
               <td>{book.author}</td>
               <td>{book.year}</td>
               <td><AccessChip access={book.access} /></td>
+              <td>{statusLabel(book.publicationStatus)}</td>
               <td>{formatNumber(book.reads)}</td>
             </tr>
           ))}
@@ -170,6 +178,7 @@ function PapersTable({ papers }: { papers: AdminCatalog["papers"] }) {
             <th className="py-2">Title</th>
             <th>Field</th>
             <th>Year</th>
+            <th>Status</th>
             <th>Citations</th>
           </tr>
         </thead>
@@ -179,6 +188,7 @@ function PapersTable({ papers }: { papers: AdminCatalog["papers"] }) {
               <td className="max-w-md py-3 font-medium text-navy">{paper.title}</td>
               <td>{paper.field}</td>
               <td>{paper.year}</td>
+              <td>{statusLabel(paper.publicationStatus)}</td>
               <td>{formatNumber(paper.citations)}</td>
             </tr>
           ))}
@@ -219,92 +229,143 @@ function UsersTable({ members }: { members: AdminCatalog["members"] }) {
 }
 
 function UploadForm() {
-  const [kind, setKind] = useState<"book" | "paper">("book");
-  const [state, action, pending] = useActionState(createResourceAction, {} as AuthState);
-
   return (
     <Panel title="Add a resource">
       <p className="mb-5 text-sm text-muted">
-        Add a book or paper to the catalog. Uploaded files are prepared for
+        Add a book or paper to the catalog. It is published immediately. Uploaded files are prepared for
         in-browser reading.
       </p>
-      <div className="mb-4 flex gap-2">
-        {(["book", "paper"] as const).map((item) => (
-          <button
-            key={item}
-            type="button"
-            onClick={() => setKind(item)}
-            className={cn(
-              "rounded-full px-4 py-1.5 text-sm capitalize",
-              kind === item ? "bg-navy text-white" : "bg-paper text-navy-mid",
-            )}
-          >
-            {item}
-          </button>
-        ))}
-      </div>
-      <form action={action} className="grid gap-4 sm:grid-cols-2">
-        <input type="hidden" name="kind" value={kind} />
-        <label className="sm:col-span-2 rounded-2xl border border-dashed border-navy/30 bg-paper px-6 py-10 text-center">
-          <Upload className="mx-auto size-6 text-navy-soft" />
-          <p className="mt-2 text-sm text-navy">Drop a manuscript or choose a file</p>
-          <p className="text-xs text-muted">PDF for in-browser reading</p>
-          <input type="file" className="sr-only" />
-        </label>
-        <Field label="Title" name="title" />
-        {kind === "book" ? (
-          <Field label="Author" name="author" />
-        ) : (
-          <Field label="Authors" name="authors" />
-        )}
-        {kind === "book" ? <Field label="ISBN" name="isbn" /> : <Field label="DOI" name="doi" />}
-        {kind === "book" ? (
-          <Field label="Category" name="category" />
-        ) : (
-          <Field label="Research field" name="field" />
-        )}
-        <Field label="Year" name="year" />
-        <label className="text-xs font-semibold tracking-wide text-muted uppercase">
-          Access
-          <select
-            name="access"
-            className="mt-1.5 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm font-normal text-ink"
-          >
-            <option value="open">Open Access</option>
-            <option value="members">Members only</option>
-          </select>
-        </label>
-        <label className="sm:col-span-2 text-xs font-semibold tracking-wide text-muted uppercase">
-          Description / abstract
-          <textarea
-            name="description"
-            className="mt-1.5 min-h-28 w-full rounded-lg border border-line px-3 py-2 text-sm font-normal text-ink outline-none"
-          />
-        </label>
-        {state.error ? <p className="text-sm text-red-700 sm:col-span-2">{state.error}</p> : null}
-        {state.success ? <p className="text-sm text-emerald-800 sm:col-span-2">{state.success}</p> : null}
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-full bg-navy px-5 py-2.5 text-sm font-medium text-white hover:bg-navy-mid disabled:opacity-60 sm:col-span-2"
-        >
-          {pending ? "Saving…" : "Save to catalog"}
-        </button>
-      </form>
+      <ResourceForm
+        action={createResourceAction}
+        submitLabel="Save to catalog"
+        showFileStub
+      />
     </Panel>
   );
 }
 
-function Field({ label, name }: { label: string; name: string }) {
+type PendingItem = {
+  id: string;
+  kind: "book" | "paper";
+  title: string;
+  addedAt: string;
+  submittedBy?: string;
+};
+
+function ReviewPanel({
+  books,
+  papers,
+  members,
+}: {
+  books: AdminCatalog["books"];
+  papers: AdminCatalog["papers"];
+  members: AdminCatalog["members"];
+}) {
+  const names = new Map(members.map((member) => [member._id, member.name]));
+  const pending: PendingItem[] = [
+    ...books
+      .filter((book) => book.publicationStatus === "pending")
+      .map((book) => ({
+        id: book._id,
+        kind: "book" as const,
+        title: book.title,
+        addedAt: book.addedAt,
+        submittedBy: book.submittedBy,
+      })),
+    ...papers
+      .filter((paper) => paper.publicationStatus === "pending")
+      .map((paper) => ({
+        id: paper._id,
+        kind: "paper" as const,
+        title: paper.title,
+        addedAt: paper.addedAt,
+        submittedBy: paper.submittedBy,
+      })),
+  ].sort((a, b) => b.addedAt.localeCompare(a.addedAt));
+
   return (
-    <label className="text-xs font-semibold tracking-wide text-muted uppercase">
-      {label}
-      <input
-        name={name}
-        className="mt-1.5 w-full rounded-lg border border-line px-3 py-2 text-sm font-normal text-ink outline-none"
-      />
-    </label>
+    <Panel title="Waiting for review">
+      {pending.length === 0 ? (
+        <p className="text-sm text-muted">No submissions are waiting for review.</p>
+      ) : (
+        <table className="w-full text-left text-sm">
+          <thead className="text-xs tracking-wide text-muted uppercase">
+            <tr>
+              <th className="py-2">Title</th>
+              <th>Kind</th>
+              <th>Submitted by</th>
+              <th>Date</th>
+              <th>Decision</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pending.map((item) => (
+              <ReviewRow
+                key={`${item.kind}-${item.id}`}
+                item={item}
+                submitter={item.submittedBy ? names.get(item.submittedBy) ?? "Unknown" : "Unknown"}
+              />
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Panel>
   );
+}
+
+function ReviewRow({ item, submitter }: { item: PendingItem; submitter: string }) {
+  const [publishState, publish, publishing] = useActionState(publishResourceAction, {});
+  const [rejectState, reject, rejecting] = useActionState(rejectResourceAction, {});
+  const message = publishState.error ?? rejectState.error ?? publishState.success ?? rejectState.success;
+
+  return (
+    <tr className="border-t border-line align-top">
+      <td className="max-w-sm py-3 font-medium text-navy">{item.title}</td>
+      <td className="py-3 capitalize">{item.kind}</td>
+      <td className="py-3">{submitter}</td>
+      <td className="py-3">{item.addedAt}</td>
+      <td className="py-3">
+        <div className="flex flex-col gap-2">
+          <form action={publish}>
+            <input type="hidden" name="id" value={item.id} />
+            <input type="hidden" name="kind" value={item.kind} />
+            <button
+              type="submit"
+              disabled={publishing || rejecting}
+              className="rounded-full bg-navy px-3 py-1.5 text-xs font-medium text-white hover:bg-navy-mid disabled:opacity-60"
+            >
+              {publishing ? "Publishing…" : "Publish"}
+            </button>
+          </form>
+          <form action={reject} className="flex flex-col gap-2">
+            <input type="hidden" name="id" value={item.id} />
+            <input type="hidden" name="kind" value={item.kind} />
+            <input
+              name="reviewNote"
+              required
+              maxLength={280}
+              placeholder="Note for the author"
+              className="w-56 rounded-lg border border-line px-2 py-1.5 text-xs font-normal text-ink outline-none"
+            />
+            <button
+              type="submit"
+              disabled={publishing || rejecting}
+              className="w-fit rounded-full border border-line px-3 py-1.5 text-xs font-medium text-navy hover:bg-paper disabled:opacity-60"
+            >
+              {rejecting ? "Rejecting…" : "Reject"}
+            </button>
+          </form>
+          {message ? <p className="max-w-56 text-xs text-navy-mid">{message}</p> : null}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function statusLabel(status?: PublicationStatus) {
+  if (status === "pending") return "Pending";
+  if (status === "rejected") return "Rejected";
+  return "Published";
 }
 
 function Panel({ title, children }: { title: string; children: ReactNode }) {

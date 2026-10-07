@@ -1,16 +1,19 @@
 import "server-only";
 
 import { collections } from "@/lib/db";
-import { listBooks } from "@/lib/data/books";
-import { listPapers } from "@/lib/data/papers";
+import { listAllBooks, listBooks } from "@/lib/data/books";
+import { listAllPapers, listPapers } from "@/lib/data/papers";
+import { withPublished } from "@/lib/data/publication";
 import { listMembers } from "@/lib/data/members";
 import { toPlain } from "@/lib/data/serialize";
 import type {
   AdminCatalog,
+  Book,
   LibraryStats,
   MonthlyReads,
   PopularResource,
   RecentResource,
+  ResearchPaper,
 } from "@/lib/types";
 
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -22,8 +25,8 @@ export async function getLibraryStats(): Promise<LibraryStats> {
   const year = now.getFullYear();
   const current = await monthlyReads.findOne({ month, year });
   const [totalBooks, researchPapers, activeMembers] = await Promise.all([
-    books.countDocuments(),
-    papers.countDocuments(),
+    books.countDocuments(withPublished<Book>({})),
+    papers.countDocuments(withPublished<ResearchPaper>({})),
     members.countDocuments({ status: "Active" }),
   ]);
   return {
@@ -77,8 +80,8 @@ export async function incrementMonthlyReads(kind: "books" | "papers") {
 
 export async function getAdminCatalog(): Promise<AdminCatalog> {
   const [books, papers, members, monthly, popular] = await Promise.all([
-    listBooks(),
-    listPapers(),
+    listAllBooks(),
+    listAllPapers(),
     listMembers(),
     getMonthlyReads(),
     popularResources(),
