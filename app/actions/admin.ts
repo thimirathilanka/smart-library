@@ -4,11 +4,22 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { draftFromForm, editsFromForm } from "@/lib/catalog-form";
 import { createBook, deleteBook, publishBook, rejectBook, updateBook } from "@/lib/data/books";
-import { getMemberById } from "@/lib/data/members";
+import {
+  getMemberById,
+  grantMembership,
+  setMemberAdmin,
+  setMemberAuthor,
+  setMemberStatus,
+} from "@/lib/data/members";
 import { createPaper, deletePaper, publishPaper, rejectPaper, updatePaper } from "@/lib/data/papers";
 import type { PublicationStatus, ResourceKind } from "@/lib/types";
 
 export type CatalogState = {
+  error?: string;
+  success?: string;
+};
+
+export type MemberActionState = {
   error?: string;
   success?: string;
 };
@@ -141,4 +152,57 @@ export async function deleteResourceAction(_prev: CatalogState, formData: FormDa
 
   revalidatePublic(resource.kind, resource.id);
   return { success: "Resource deleted." };
+}
+
+export async function manageMemberAction(
+  _prev: MemberActionState,
+  formData: FormData,
+): Promise<MemberActionState> {
+  const admin = await requireActiveAdmin();
+  if (!admin) return { error: "You do not have permission to manage members." };
+
+  const memberId = String(formData.get("memberId") ?? "").trim();
+  const operation = String(formData.get("operation") ?? "");
+  if (!memberId) return { error: "Select a member first." };
+
+  if (operation === "membership") {
+    const membershipExpiresAt = await grantMembership(memberId);
+    if (!membershipExpiresAt) return { error: "Membership could not be updated." };
+    revalidatePath("/admin");
+    revalidatePath("/membership");
+    return { success: `Membership active through ${membershipExpiresAt}.` };
+  }
+
+  if (operation === "make-author" || operation === "remove-author") {
+    const enabled = operation === "make-author";
+    const updated = await setMemberAuthor(memberId, enabled);
+    if (!updated) return { error: "That member could not be found." };
+    revalidatePath("/admin");
+    revalidatePath("/author");
+    return { success: enabled ? "Author access granted." : "Author access removed." };
+  }
+
+  if (operation === "promote-admin" || operation === "demote-admin") {
+    const enabled = operation === "promote-admin";
+    if (!enabled && memberId === admin._id) return { error: "You cannot remove your own admin access." };
+    const result = await setMemberAdmin(memberId, enabled);
+    if (result === "not-found") return { error: "That member could not be found." };
+    if (result === "last-admin") return { error: "The last active admin cannot be demoted." };
+    revalidatePath("/admin");
+    return { success: enabled ? "Admin access granted." : "Admin access removed." };
+  }
+
+  if (operation === "suspend" || operation === "unsuspend") {
+    const status = operation === "unsuspend" ? "Active" : "Suspended";
+    if (status === "Suspended" && memberId === admin._id) {
+      return { error: "You cannot suspend your own account." };
+    }
+    const result = await setMemberStatus(memberId, status);
+    if (result === "not-found") return { error: "That member could not be found." };
+    if (result === "last-admin") return { error: "The last active admin cannot be suspended." };
+    revalidatePath("/admin");
+    return { success: status === "Active" ? "Member unsuspended." : "Member suspended." };
+  }
+
+  return { error: "Choose a valid member action." };
 }
