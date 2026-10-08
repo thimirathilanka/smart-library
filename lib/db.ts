@@ -1,6 +1,6 @@
 import "server-only";
 
-import { MongoClient, type Collection, type Db, type Document } from "mongodb";
+import { GridFSBucket, MongoClient, ObjectId, type Collection, type Db, type Document } from "mongodb";
 import type { Book, MemberRecord, MonthlyReads, ResearchPaper } from "@/lib/types";
 
 const dbName = process.env.MONGODB_DB ?? "nextgen-library";
@@ -32,6 +32,15 @@ export async function getMongoClient() {
 export async function getDb(): Promise<Db> {
   const client = await getMongoClient();
   return client.db(dbName);
+}
+
+export async function deleteGridFsFile(fileId?: string) {
+  if (!fileId || !ObjectId.isValid(fileId)) return false;
+  const bucket = new GridFSBucket(await getDb());
+  const id = new ObjectId(fileId);
+  if (!(await bucket.find({ _id: id }).hasNext())) return false;
+  await bucket.delete(id);
+  return true;
 }
 
 export async function collections() {
