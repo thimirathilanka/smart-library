@@ -31,6 +31,7 @@ export type Book = {
   publicationStatus?: PublicationStatus;
   submittedBy?: string;
   reviewNote?: string;
+  fileId?: string;
 };
 
 export type ResearchPaper = {
@@ -53,6 +54,7 @@ export type ResearchPaper = {
   publicationStatus?: PublicationStatus;
   submittedBy?: string;
   reviewNote?: string;
+  fileId?: string;
 };
 
 export type Member = {

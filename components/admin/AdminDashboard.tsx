@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, type ReactNode } from "react";
+import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Bar,
   BarChart,
@@ -18,11 +18,20 @@ import {
   BookOpen,
   ClipboardCheck,
   FileText,
+  Pencil,
+  Trash2,
   Upload,
   Users,
+  X,
 } from "lucide-react";
-import { createResourceAction, publishResourceAction, rejectResourceAction } from "@/app/actions/admin";
-import { ResourceForm } from "@/components/catalog/ResourceForm";
+import {
+  createResourceAction,
+  deleteResourceAction,
+  publishResourceAction,
+  rejectResourceAction,
+  updateResourceAction,
+} from "@/app/actions/admin";
+import { ResourceForm, type ResourceFormValues } from "@/components/catalog/ResourceForm";
 import { cn, formatNumber } from "@/lib/format";
 import type { AccessType, AdminCatalog, PublicationStatus } from "@/lib/types";
 
@@ -150,19 +159,38 @@ function BooksTable({ books }: { books: AdminCatalog["books"] }) {
             <th>Access</th>
             <th>Status</th>
             <th>Reads</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {books.map((book) => (
-            <tr key={book._id} className="border-t border-line">
-              <td className="py-3 font-medium text-navy">{book.title}</td>
-              <td>{book.author}</td>
-              <td>{book.year}</td>
-              <td><AccessChip access={book.access} /></td>
-              <td>{statusLabel(book.publicationStatus)}</td>
-              <td>{formatNumber(book.reads)}</td>
-            </tr>
-          ))}
+          {books.map((book) => {
+            const initial: ResourceFormValues = {
+              title: book.title,
+              author: book.author,
+              isbn: book.isbn,
+              category: book.category,
+              year: book.year,
+              access: book.access,
+              description: book.description,
+              publicationStatus: book.publicationStatus ?? "published",
+            };
+            return (
+              <CatalogAdminRow
+                key={book._id}
+                kind="book"
+                id={book._id}
+                title={book.title}
+                initial={initial}
+              >
+                <td className="py-3 font-medium text-navy">{book.title}</td>
+                <td>{book.author}</td>
+                <td>{book.year}</td>
+                <td><AccessChip access={book.access} /></td>
+                <td>{statusLabel(book.publicationStatus)}</td>
+                <td>{formatNumber(book.reads)}</td>
+              </CatalogAdminRow>
+            );
+          })}
         </tbody>
       </table>
     </Panel>
@@ -180,21 +208,180 @@ function PapersTable({ papers }: { papers: AdminCatalog["papers"] }) {
             <th>Year</th>
             <th>Status</th>
             <th>Citations</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {papers.map((paper) => (
-            <tr key={paper._id} className="border-t border-line">
-              <td className="max-w-md py-3 font-medium text-navy">{paper.title}</td>
-              <td>{paper.field}</td>
-              <td>{paper.year}</td>
-              <td>{statusLabel(paper.publicationStatus)}</td>
-              <td>{formatNumber(paper.citations)}</td>
-            </tr>
-          ))}
+          {papers.map((paper) => {
+            const initial: ResourceFormValues = {
+              title: paper.title,
+              authors: paper.authors.join(", "),
+              doi: paper.doi,
+              field: paper.field,
+              year: paper.year,
+              access: paper.access,
+              description: paper.abstract,
+              publicationStatus: paper.publicationStatus ?? "published",
+            };
+            return (
+              <CatalogAdminRow
+                key={paper._id}
+                kind="paper"
+                id={paper._id}
+                title={paper.title}
+                initial={initial}
+              >
+                <td className="max-w-md py-3 font-medium text-navy">{paper.title}</td>
+                <td>{paper.field}</td>
+                <td>{paper.year}</td>
+                <td>{statusLabel(paper.publicationStatus)}</td>
+                <td>{formatNumber(paper.citations)}</td>
+              </CatalogAdminRow>
+            );
+          })}
         </tbody>
       </table>
     </Panel>
+  );
+}
+
+function CatalogAdminRow({
+  kind,
+  id,
+  title,
+  initial,
+  children,
+}: {
+  kind: "book" | "paper";
+  id: string;
+  title: string;
+  initial: ResourceFormValues;
+  children: ReactNode;
+}) {
+  const [deleteState, deleteAction, deleting] = useActionState(deleteResourceAction, {});
+  const editDialogRef = useRef<HTMLDialogElement>(null);
+  const deleteDialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    if (deleteState.success) deleteDialogRef.current?.close();
+  }, [deleteState.success]);
+
+  return (
+    <>
+      <tr className="border-t border-line align-top">
+        {children}
+        <td className="py-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => editDialogRef.current?.showModal()}
+              aria-haspopup="dialog"
+              aria-label={`Edit ${title}`}
+              title="Edit resource"
+              className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1.5 text-xs font-medium text-navy hover:bg-paper"
+            >
+              <Pencil className="size-3.5" />
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => deleteDialogRef.current?.showModal()}
+              aria-haspopup="dialog"
+              aria-label={`Delete ${title}`}
+              title="Delete resource"
+              className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+            >
+              <Trash2 className="size-3.5" />
+              Delete
+            </button>
+          </div>
+          {deleteState.error ? (
+            <p role="alert" className="mt-1 max-w-48 text-xs text-red-700">{deleteState.error}</p>
+          ) : null}
+          <dialog
+            ref={editDialogRef}
+            onClick={(event) => {
+              if (event.target === editDialogRef.current) editDialogRef.current?.close();
+            }}
+            className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto rounded-xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:bg-navy/45 backdrop:backdrop-blur-sm"
+            aria-labelledby={`edit-resource-title-${kind}-${id}`}
+          >
+            <div className="p-5 sm:p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold tracking-wide text-muted uppercase">Edit {kind}</p>
+                  <h2 id={`edit-resource-title-${kind}-${id}`} className="mt-1 font-serif text-xl text-navy">
+                    {title}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => editDialogRef.current?.close()}
+                  aria-label="Close edit dialog"
+                  className="rounded-full p-2 text-muted hover:bg-paper hover:text-navy"
+                >
+                  <X className="size-4" aria-hidden="true" />
+                </button>
+              </div>
+              <div className="mt-5">
+                <ResourceForm
+                  action={updateResourceAction}
+                  submitLabel="Save changes"
+                  pendingLabel="Saving…"
+                  lockKind={kind}
+                  resourceId={id}
+                  initial={initial}
+                  allowPublicationStatus
+                />
+              </div>
+            </div>
+          </dialog>
+          <dialog
+            ref={deleteDialogRef}
+            onClick={(event) => {
+              if (event.target === deleteDialogRef.current && !deleting) {
+                deleteDialogRef.current?.close();
+              }
+            }}
+            className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:bg-navy/45 backdrop:backdrop-blur-sm"
+            aria-labelledby={`delete-resource-title-${kind}-${id}`}
+            aria-describedby={`delete-resource-description-${kind}-${id}`}
+          >
+            <form action={deleteAction} className="p-5 sm:p-6">
+              <input type="hidden" name="id" value={id} />
+              <input type="hidden" name="kind" value={kind} />
+              <h2 id={`delete-resource-title-${kind}-${id}`} className="font-serif text-xl text-navy">
+                Delete resource?
+              </h2>
+              <p id={`delete-resource-description-${kind}-${id}`} className="mt-3 text-sm leading-6 text-muted">
+                Delete <span className="font-medium text-navy">{title}</span>? This cannot be undone.
+              </p>
+              {deleteState.error ? (
+                <p role="alert" className="mt-3 text-sm text-red-700">{deleteState.error}</p>
+              ) : null}
+              <div className="mt-6 flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => deleteDialogRef.current?.close()}
+                  disabled={deleting}
+                  autoFocus
+                  className="min-h-10 rounded-full border border-line px-4 py-2 text-sm font-medium text-navy disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={deleting}
+                  className="min-h-10 rounded-full bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800 disabled:opacity-60"
+                >
+                  {deleting ? "Deleting…" : "Delete resource"}
+                </button>
+              </div>
+            </form>
+          </dialog>
+        </td>
+      </tr>
+    </>
   );
 }
 

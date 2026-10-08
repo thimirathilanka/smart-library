@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { Upload } from "lucide-react";
 import { cn } from "@/lib/format";
-import type { AccessType, ResourceKind } from "@/lib/types";
+import type { AccessType, PublicationStatus, ResourceKind } from "@/lib/types";
 
 type FormState = {
   error?: string;
@@ -21,6 +21,7 @@ export type ResourceFormValues = {
   year: number;
   access: AccessType;
   description: string;
+  publicationStatus?: PublicationStatus;
 };
 
 export function ResourceForm({
@@ -31,6 +32,7 @@ export function ResourceForm({
   resourceId,
   initial,
   showFileStub = false,
+  allowPublicationStatus = false,
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
   submitLabel: string;
@@ -39,6 +41,7 @@ export function ResourceForm({
   resourceId?: string;
   initial?: ResourceFormValues;
   showFileStub?: boolean;
+  allowPublicationStatus?: boolean;
 }) {
   const [kind, setKind] = useState<ResourceKind>(lockKind ?? "book");
   const [state, formAction, pending] = useActionState(action, {} as FormState);
@@ -102,6 +105,20 @@ export function ResourceForm({
             <option value="members">Members only</option>
           </select>
         </label>
+        {allowPublicationStatus ? (
+          <label className="text-xs font-semibold tracking-wide text-muted uppercase">
+            Publication status
+            <select
+              name="publicationStatus"
+              defaultValue={initial?.publicationStatus ?? "published"}
+              className="mt-1.5 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm font-normal text-ink"
+            >
+              <option value="pending">Pending</option>
+              <option value="published">Published</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </label>
+        ) : null}
         <label className="text-xs font-semibold tracking-wide text-muted uppercase sm:col-span-2">
           Description / abstract
           <textarea
