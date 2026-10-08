@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { BookDetail } from "@/components/details/ResourceDetail";
 import { getBook, relatedBooks } from "@/lib/data/books";
 import { auth } from "@/auth";
-import { getMemberLibrary } from "@/lib/data/members";
+import { getMemberById } from "@/lib/data/members";
 
 export async function generateMetadata({ params }: PageProps<"/books/[id]">) {
   const { id } = await params;
@@ -15,13 +15,19 @@ export default async function BookPage({ params }: PageProps<"/books/[id]">) {
   const book = await getBook(id);
   if (!book) notFound();
   const session = await auth();
-  const library = session?.user?.id ? await getMemberLibrary(session.user.id) : null;
+  const member = session?.user?.id ? await getMemberById(session.user.id) : null;
+  const library = member?.library;
+  const today = new Date().toISOString().slice(0, 10);
+  const hasMembership = Boolean(
+    member?.isMember && member.membershipExpiresAt && member.membershipExpiresAt >= today,
+  );
 
   return (
     <BookDetail
       book={book}
       related={await relatedBooks(book)}
       signedIn={Boolean(session?.user)}
+      hasMembership={hasMembership}
       saved={library?.saved.some((item) => item.resourceId === book._id) ?? false}
       favorited={library?.favorites.some((item) => item.resourceId === book._id) ?? false}
     />
