@@ -43,6 +43,33 @@ export async function deleteGridFsFile(fileId?: string) {
   return true;
 }
 
+export async function uploadGridFsFile(file: File) {
+  const bucket = new GridFSBucket(await getDb());
+  const upload = bucket.openUploadStream(file.name, {
+    metadata: { contentType: "application/pdf" },
+  });
+  try {
+    const { pipeline } = await import("node:stream/promises");
+    const { Readable } = await import("node:stream");
+    await pipeline(
+      Readable.fromWeb(file.stream() as unknown as import("node:stream/web").ReadableStream<Uint8Array>),
+      upload,
+    );
+    return upload.id.toString();
+  } catch (error) {
+    await upload.abort().catch(() => undefined);
+    throw error;
+  }
+}
+
+export async function openGridFsDownload(fileId: string) {
+  if (!ObjectId.isValid(fileId)) return null;
+  const bucket = new GridFSBucket(await getDb());
+  const id = new ObjectId(fileId);
+  if (!(await bucket.find({ _id: id }).hasNext())) return null;
+  return bucket.openDownloadStream(id);
+}
+
 export async function collections() {
   const db = await getDb();
   return {

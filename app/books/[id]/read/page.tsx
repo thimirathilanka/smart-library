@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { ReaderView } from "@/components/read/ReaderView";
 import { TrackRead } from "@/components/read/TrackRead";
 import { getBook } from "@/lib/data/books";
+import { getMemberById } from "@/lib/data/members";
 import { auth } from "@/auth";
 
 export async function generateMetadata({ params }: PageProps<"/books/[id]/read">) {
@@ -17,11 +18,20 @@ export default async function BookReaderPage({
   const book = await getBook(id);
   if (!book) notFound();
   const session = await auth();
+  const member = session?.user?.id ? await getMemberById(session.user.id) : null;
   if (book.access === "members") {
-    if (!session?.user) {
+    if (!member) {
       redirect(`/login?callbackUrl=/books/${book._id}/read`);
     }
-    if (!session.user.isAdmin && !session.user.isMember) {
+    const today = new Date().toISOString().slice(0, 10);
+    const isAdmin = member.status === "Active" && member.isAdmin;
+    const hasMembership = Boolean(
+      member.status === "Active" &&
+      member.isMember &&
+      member.membershipExpiresAt &&
+      member.membershipExpiresAt >= today,
+    );
+    if (!isAdmin && !hasMembership) {
       redirect(`/books/${book._id}`);
     }
   }
@@ -35,22 +45,32 @@ export default async function BookReaderPage({
         title={book.title}
         byline={book.author}
       >
-        <p>{book.description}</p>
-        <p>
-          This opening chapter sets the terms of the inquiry: what is at stake,
-          which methods will carry the argument, and how later sections will
-          return to evidence. {book.author} writes with care for both specialists
-          and readers coming to {book.title.toLowerCase()} for the first time.
-        </p>
-        <p>
-          Libraries that treat knowledge as infrastructure—rather than as a
-          warehouse of files—design for presence: a quiet column of type, a
-          stable citation, and a record of where the reader left off.
-        </p>
-        <p>
-          Subsequent chapters develop method, evidence, and debate. Your place in
-          this volume is kept on My Library.
-        </p>
+        {book.fileId ? (
+          <iframe
+            src={`/api/books/${book._id}/file`}
+            title={`Read ${book.title}`}
+            className="h-[78dvh] min-h-[32rem] w-full rounded-lg border border-line bg-white"
+          />
+        ) : (
+          <>
+            <p>{book.description}</p>
+            <p>
+              This opening chapter sets the terms of the inquiry: what is at stake,
+              which methods will carry the argument, and how later sections will
+              return to evidence. {book.author} writes with care for both specialists
+              and readers coming to {book.title.toLowerCase()} for the first time.
+            </p>
+            <p>
+              Libraries that treat knowledge as infrastructure—rather than as a
+              warehouse of files—design for presence: a quiet column of type, a
+              stable citation, and a record of where the reader left off.
+            </p>
+            <p>
+              Subsequent chapters develop method, evidence, and debate. Your place in
+              this volume is kept on My Library.
+            </p>
+          </>
+        )}
       </ReaderView>
     </>
   );

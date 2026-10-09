@@ -76,7 +76,13 @@ export function AuthorStudio({ submissions }: { submissions: AuthorSubmission[] 
         <p className="mb-5 text-sm text-muted">
           Submit a book or paper for review. It will not appear in the catalog until an admin publishes it.
         </p>
-        <ResourceForm action={submitResourceAction} submitLabel="Submit for review" pendingLabel="Submitting…" />
+        <ResourceForm
+          action={submitResourceAction}
+          submitLabel="Submit for review"
+          pendingLabel="Submitting…"
+          allowFileUpload
+          requireFileUpload
+        />
       </section>
     </div>
   );

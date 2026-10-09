@@ -1,21 +1,29 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { SessionProvider, useSession } from "next-auth/react";
 import type { Session } from "next-auth";
 import { cancelMembershipAction, purchaseMembershipAction } from "@/app/actions/membership";
 import { TriangleAlert } from "lucide-react";
 
-export function MembershipPurchase({ session }: { session: Session | null }) {
+export function MembershipPurchase({
+  session,
+  renewal = false,
+}: {
+  session: Session | null;
+  renewal?: boolean;
+}) {
   return (
     <SessionProvider session={session}>
-      <MembershipPurchaseButton />
+      <MembershipPurchaseButton renewal={renewal} />
     </SessionProvider>
   );
 }
 
-function MembershipPurchaseButton() {
+function MembershipPurchaseButton({ renewal }: { renewal: boolean }) {
   const { data, update } = useSession();
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
 
@@ -33,6 +41,7 @@ function MembershipPurchaseButton() {
         isMember: result.isMember,
         isAuthor: data?.user?.isAuthor,
       });
+      router.refresh();
     });
   }
 
@@ -44,7 +53,7 @@ function MembershipPurchaseButton() {
           disabled={pending}
           className="mt-5 w-full rounded-full bg-navy px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60"
         >
-          {pending ? "Starting membership…" : "Get membership"}
+          {pending ? "Updating membership…" : renewal ? "Renew membership" : "Get membership"}
         </button>
       </form>
       {error ? <p role="alert" className="mt-3 text-sm text-red-700">{error}</p> : null}
@@ -62,6 +71,7 @@ export function MembershipCancel({ session }: { session: Session | null }) {
 
 function MembershipCancelButton() {
   const { data, update } = useSession();
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -80,6 +90,7 @@ function MembershipCancelButton() {
         isMember: result.isMember,
         isAuthor: data?.user?.isAuthor,
       });
+      router.refresh();
       dialogRef.current?.close();
     });
   }
