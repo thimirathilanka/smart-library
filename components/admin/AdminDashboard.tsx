@@ -713,7 +713,7 @@ function UploadForm() {
       <ResourceForm
         action={createResourceAction}
         submitLabel="Save to catalog"
-        showFileStub
+        allowFileUpload
       />
     </Panel>
   );

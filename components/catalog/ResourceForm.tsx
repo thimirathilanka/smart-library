@@ -31,7 +31,8 @@ export function ResourceForm({
   lockKind,
   resourceId,
   initial,
-  showFileStub = false,
+  allowFileUpload = false,
+  requireFileUpload = false,
   allowPublicationStatus = false,
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
@@ -40,7 +41,8 @@ export function ResourceForm({
   lockKind?: ResourceKind;
   resourceId?: string;
   initial?: ResourceFormValues;
-  showFileStub?: boolean;
+  allowFileUpload?: boolean;
+  requireFileUpload?: boolean;
   allowPublicationStatus?: boolean;
 }) {
   const [kind, setKind] = useState<ResourceKind>(lockKind ?? "book");
@@ -69,12 +71,20 @@ export function ResourceForm({
       <form action={formAction} className="grid gap-4 sm:grid-cols-2">
         <input type="hidden" name="kind" value={selected} />
         {resourceId ? <input type="hidden" name="id" value={resourceId} /> : null}
-        {showFileStub ? (
-          <label className="rounded-2xl border border-dashed border-navy/30 bg-paper px-6 py-10 text-center sm:col-span-2">
-            <Upload className="mx-auto size-6 text-navy-soft" />
-            <p className="mt-2 text-sm text-navy">Drop a manuscript or choose a file</p>
-            <p className="text-xs text-muted">PDF for in-browser reading</p>
-            <input type="file" className="sr-only" />
+        {allowFileUpload ? (
+          <label className="rounded-xl border border-dashed border-navy/30 bg-paper px-5 py-6 text-center sm:col-span-2">
+            <Upload className="mx-auto size-6 text-navy-soft" aria-hidden="true" />
+            <span className="mt-2 block text-sm font-medium text-navy">
+              Upload {selected === "book" ? "book" : "research paper"} PDF
+            </span>
+            <span className="mt-1 block text-xs text-muted">PDF only, up to 25 MB</span>
+            <input
+              type="file"
+              name="file"
+              accept="application/pdf,.pdf"
+              required={requireFileUpload}
+              className="mt-4 block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-medium file:text-navy hover:file:bg-white/70"
+            />
           </label>
         ) : null}
         <Field label="Title" name="title" defaultValue={initial?.title} />

@@ -11,7 +11,9 @@ import {
   setMemberAuthor,
   setMemberStatus,
 } from "@/lib/data/members";
+import { savePdfUpload } from "@/lib/data/files";
 import { createPaper, deletePaper, publishPaper, rejectPaper, updatePaper } from "@/lib/data/papers";
+import { deleteGridFsFile } from "@/lib/db";
 import type { PublicationStatus, ResourceKind } from "@/lib/types";
 
 export type CatalogState = {
@@ -71,12 +73,36 @@ export async function createResourceAction(_prev: CatalogState, formData: FormDa
   if (!draft.ok) return { error: draft.error };
 
   if (draft.kind === "paper") {
-    await createPaper(draft.paper);
+    const fileValue = formData.get("file");
+    let fileId: string | undefined;
+    if (fileValue instanceof File && fileValue.size > 0) {
+      const upload = await savePdfUpload(fileValue);
+      if (!upload.ok) return { error: upload.error };
+      fileId = upload.fileId;
+    }
+    try {
+      await createPaper({ ...draft.paper, ...(fileId ? { fileId } : {}) });
+    } catch {
+      if (fileId) await deleteGridFsFile(fileId);
+      return { error: "The paper could not be added. Please try again." };
+    }
     revalidatePublic();
     return { success: "Paper added to the catalog." };
   }
 
-  await createBook(draft.book);
+  const fileValue = formData.get("file");
+  let fileId: string | undefined;
+  if (fileValue instanceof File && fileValue.size > 0) {
+    const upload = await savePdfUpload(fileValue);
+    if (!upload.ok) return { error: upload.error };
+    fileId = upload.fileId;
+  }
+  try {
+    await createBook({ ...draft.book, ...(fileId ? { fileId } : {}) });
+  } catch {
+    if (fileId) await deleteGridFsFile(fileId);
+    return { error: "The book could not be added. Please try again." };
+  }
   revalidatePublic();
   return { success: "Book added to the catalog." };
 }
