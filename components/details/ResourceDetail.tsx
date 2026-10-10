@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { BookOpen, Bookmark, Calendar, FileText, Hash, Languages, Quote } from "lucide-react";
+import { BookOpen, Bookmark, Calendar, FileText, Hash, Languages, LockKeyhole, Quote } from "lucide-react";
 import { BookCover } from "@/components/ui/BookCover";
 import { AccessBadge } from "@/components/ui/AccessBadge";
 import { RatingStars } from "@/components/ui/RatingStars";
@@ -16,6 +16,7 @@ export function BookDetail({
   related,
   signedIn = false,
   hasMembership = false,
+  promptLocked = false,
   saved = false,
   favorited = false,
 }: {
@@ -23,9 +24,11 @@ export function BookDetail({
   related: Book[];
   signedIn?: boolean;
   hasMembership?: boolean;
+  promptLocked?: boolean;
   saved?: boolean;
   favorited?: boolean;
 }) {
+  const membersOnly = book.access === "members" && !hasMembership;
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="grid gap-10 lg:grid-cols-[280px_1fr]">
@@ -36,6 +39,7 @@ export function BookDetail({
             requiresMembership={book.access === "members"}
             hasMembership={hasMembership}
             signedIn={signedIn}
+            openOnMount={promptLocked}
             preview={{
               kicker: `${book.publisher} · ${book.year}`,
               title: book.title,
@@ -49,8 +53,8 @@ export function BookDetail({
             }}
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-navy py-3 text-sm font-medium text-white hover:bg-navy-mid"
           >
-            <BookOpen className="size-4" />
-            Read online
+            {membersOnly ? <LockKeyhole className="size-4" /> : <BookOpen className="size-4" />}
+            {membersOnly ? "Members only" : "Read online"}
           </ReadAccessLink>
           <LibraryActions
             resourceId={book._id}
@@ -75,7 +79,7 @@ export function BookDetail({
           </div>
           <p className="mt-6 max-w-3xl text-base leading-8 text-muted">{book.description}</p>
           <dl className="mt-8 grid gap-4 rounded-2xl border border-line bg-white p-5 sm:grid-cols-2">
-            <Meta icon={<Hash className="size-4" />} label="ISBN" value={book.isbn} />
+            {book.isbn ? <Meta icon={<Hash className="size-4" />} label="ISBN" value={book.isbn} /> : null}
             <Meta icon={<Quote className="size-4" />} label="Publisher" value={book.publisher} />
             <Meta icon={<Calendar className="size-4" />} label="Year" value={String(book.year)} />
             <Meta icon={<FileText className="size-4" />} label="Pages" value={String(book.pages)} />
@@ -106,6 +110,7 @@ export function PaperDetail({
   related,
   signedIn = false,
   hasMembership = false,
+  promptLocked = false,
   saved = false,
   favorited = false,
 }: {
@@ -113,9 +118,11 @@ export function PaperDetail({
   related: ResearchPaper[];
   signedIn?: boolean;
   hasMembership?: boolean;
+  promptLocked?: boolean;
   saved?: boolean;
   favorited?: boolean;
 }) {
+  const membersOnly = paper.access === "members" && !hasMembership;
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
@@ -150,6 +157,7 @@ export function PaperDetail({
             requiresMembership={paper.access === "members"}
             hasMembership={hasMembership}
             signedIn={signedIn}
+            openOnMount={promptLocked}
             preview={{
               kicker: `${paper.venue} · ${paper.year}`,
               title: paper.title,
@@ -162,14 +170,16 @@ export function PaperDetail({
                 },
                 {
                   label: "2. Contribution.",
-                  text: `Findings are reported under DOI ${paper.doi} and indexed with the venue record for ${paper.venue}.`,
+                  text: paper.doi
+                    ? `Findings are reported under DOI ${paper.doi} and indexed with the venue record for ${paper.venue}.`
+                    : `Findings are indexed with the venue record for ${paper.venue}.`,
                 },
               ],
             }}
             className="mt-5 inline-flex items-center gap-2 rounded-full bg-navy px-5 py-2.5 text-sm font-medium text-white hover:bg-navy-mid"
           >
-            <FileText className="size-4" />
-            Read online
+            {membersOnly ? <LockKeyhole className="size-4" /> : <FileText className="size-4" />}
+            {membersOnly ? "Members only" : "Read online"}
           </ReadAccessLink>
           <LibraryActions
             resourceId={paper._id}
@@ -195,7 +205,7 @@ export function PaperDetail({
             <Meta label="Venue" value={`${paper.venue} (${paper.venueType})`} />
             <Meta label="Published" value={paper.publishedAt} />
             <Meta label="Pages" value={paper.pages} />
-            <Meta label="DOI" value={paper.doi} />
+            {paper.doi ? <Meta label="DOI" value={paper.doi} /> : null}
             <Meta label="Citations" value={formatNumber(paper.citations)} />
           </dl>
           <div className="mt-6">

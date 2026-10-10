@@ -23,6 +23,7 @@ function fromBook(book: Book): AuthorSubmission {
     year: book.year,
     access: book.access,
     description: book.description,
+    hasFile: Boolean(book.fileId),
   };
 }
 
@@ -40,6 +41,7 @@ function fromPaper(paper: ResearchPaper): AuthorSubmission {
     year: paper.year,
     access: paper.access,
     description: paper.abstract,
+    hasFile: Boolean(paper.fileId),
   };
 }
 

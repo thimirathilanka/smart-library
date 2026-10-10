@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LayoutGrid, List } from "lucide-react";
 import { BookCard } from "@/components/books/BookCard";
 import type { AccessType, Book } from "@/lib/types";
@@ -14,6 +14,9 @@ export function BookCatalog({
   initialQuery?: string;
 }) {
   const [query, setQuery] = useState(initialQuery);
+  useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
   const [category, setCategory] = useState("all");
   const [author, setAuthor] = useState("all");
   const [year, setYear] = useState("all");

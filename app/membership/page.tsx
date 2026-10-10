@@ -1,21 +1,16 @@
 import { auth } from "@/auth";
-import { getMemberById } from "@/lib/data/members";
+import { getMemberById, hasActiveMembership } from "@/lib/data/members";
 import { formatLongDate } from "@/lib/format";
 import { MembershipCancel, MembershipPurchase } from "@/components/membership/MembershipPurchase";
 import { BookOpen, Check, Crown, LibraryBig } from "lucide-react";
 
 export const metadata = { title: "Membership" };
 
-function isActiveMembership(isMember: boolean, expiresAt?: string) {
-  if (!isMember || !expiresAt) return false;
-  return expiresAt >= new Date().toISOString().slice(0, 10);
-}
-
 export default async function MembershipPage() {
   const session = await auth();
   const member = session?.user?.id ? await getMemberById(session.user.id) : null;
   const expiresAt = member?.membershipExpiresAt;
-  const active = isActiveMembership(Boolean(member?.isMember), expiresAt);
+  const active = hasActiveMembership(member);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-16">

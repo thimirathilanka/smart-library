@@ -58,9 +58,11 @@ type SectionId = (typeof sections)[number]["id"];
 export function AdminDashboard({
   catalog,
   currentAdminId,
+  fileNames,
 }: {
   catalog: AdminCatalog;
   currentAdminId: string;
+  fileNames: Record<string, string>;
 }) {
   const [section, setSection] = useState<SectionId>("analytics");
   const { books, papers, members, monthlyReads, popularResources } = catalog;
@@ -96,8 +98,8 @@ export function AdminDashboard({
             popularResources={popularResources}
           />
         ) : null}
-        {section === "books" ? <BooksTable books={books} /> : null}
-        {section === "papers" ? <PapersTable papers={papers} /> : null}
+        {section === "books" ? <BooksTable books={books} fileNames={fileNames} /> : null}
+        {section === "papers" ? <PapersTable papers={papers} fileNames={fileNames} /> : null}
         {section === "users" ? <UsersTable members={members} currentAdminId={currentAdminId} /> : null}
         {section === "review" ? (
           <ReviewPanel books={books} papers={papers} members={members} />
@@ -162,7 +164,7 @@ function AnalyticsPanel({
   );
 }
 
-function BooksTable({ books }: { books: AdminCatalog["books"] }) {
+function BooksTable({ books, fileNames }: { books: AdminCatalog["books"]; fileNames: Record<string, string> }) {
   return (
     <Panel title="Books">
       <table className="w-full text-left text-sm">
@@ -188,6 +190,7 @@ function BooksTable({ books }: { books: AdminCatalog["books"] }) {
               access: book.access,
               description: book.description,
               publicationStatus: book.publicationStatus ?? "published",
+              currentFileName: book.fileId ? (fileNames[book.fileId] ?? "") : null,
             };
             return (
               <CatalogAdminRow
@@ -212,7 +215,13 @@ function BooksTable({ books }: { books: AdminCatalog["books"] }) {
   );
 }
 
-function PapersTable({ papers }: { papers: AdminCatalog["papers"] }) {
+function PapersTable({
+  papers,
+  fileNames,
+}: {
+  papers: AdminCatalog["papers"];
+  fileNames: Record<string, string>;
+}) {
   return (
     <Panel title="Research papers">
       <table className="w-full text-left text-sm">
@@ -237,6 +246,7 @@ function PapersTable({ papers }: { papers: AdminCatalog["papers"] }) {
               access: paper.access,
               description: paper.abstract,
               publicationStatus: paper.publicationStatus ?? "published",
+              currentFileName: paper.fileId ? (fileNames[paper.fileId] ?? "") : null,
             };
             return (
               <CatalogAdminRow
@@ -346,6 +356,7 @@ function CatalogAdminRow({
                   lockKind={kind}
                   resourceId={id}
                   initial={initial}
+                  allowFileUpload
                   allowPublicationStatus
                 />
               </div>
@@ -725,6 +736,7 @@ type PendingItem = {
   title: string;
   addedAt: string;
   submittedBy?: string;
+  hasFile: boolean;
 };
 
 function ReviewPanel({
@@ -746,6 +758,7 @@ function ReviewPanel({
         title: book.title,
         addedAt: book.addedAt,
         submittedBy: book.submittedBy,
+        hasFile: Boolean(book.fileId),
       })),
     ...papers
       .filter((paper) => paper.publicationStatus === "pending")
@@ -755,6 +768,7 @@ function ReviewPanel({
         title: paper.title,
         addedAt: paper.addedAt,
         submittedBy: paper.submittedBy,
+        hasFile: Boolean(paper.fileId),
       })),
   ].sort((a, b) => b.addedAt.localeCompare(a.addedAt));
 
@@ -795,7 +809,19 @@ function ReviewRow({ item, submitter }: { item: PendingItem; submitter: string }
 
   return (
     <tr className="border-t border-line align-top">
-      <td className="max-w-sm py-3 font-medium text-navy">{item.title}</td>
+      <td className="max-w-sm py-3 font-medium text-navy">
+        {item.title}
+        {item.hasFile ? (
+          <a
+            href={item.kind === "book" ? `/api/books/${item.id}/file` : `/api/research/${item.id}/file`}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 block text-sm font-medium text-navy underline"
+          >
+            Preview PDF
+          </a>
+        ) : null}
+      </td>
       <td className="py-3 capitalize">{item.kind}</td>
       <td className="py-3">{submitter}</td>
       <td className="py-3">{item.addedAt}</td>

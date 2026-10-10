@@ -11,7 +11,7 @@ import {
   setMemberAuthor,
   setMemberStatus,
 } from "@/lib/data/members";
-import { savePdfUpload } from "@/lib/data/files";
+import { savePdfUpload, saveReplacementPdf } from "@/lib/data/files";
 import { createPaper, deletePaper, publishPaper, rejectPaper, updatePaper } from "@/lib/data/papers";
 import { deleteGridFsFile } from "@/lib/db";
 import type { PublicationStatus, ResourceKind } from "@/lib/types";
@@ -155,10 +155,21 @@ export async function updateResourceAction(_prev: CatalogState, formData: FormDa
     return { error: parsed.ok ? "That resource could not be updated." : parsed.error };
   }
 
-  const updated = parsed.kind === "book"
-    ? await updateBook(resource.id, parsed.edits, status)
-    : await updatePaper(resource.id, parsed.edits, status);
-  if (!updated) return { error: "That resource could not be found." };
+  const upload = await saveReplacementPdf(formData.get("file"));
+  if (!upload.ok) return { error: upload.error };
+
+  try {
+    const updated = parsed.kind === "book"
+      ? await updateBook(resource.id, parsed.edits, status, upload.fileId)
+      : await updatePaper(resource.id, parsed.edits, status, upload.fileId);
+    if (!updated) {
+      if (upload.fileId) await deleteGridFsFile(upload.fileId);
+      return { error: "That resource could not be found." };
+    }
+  } catch {
+    if (upload.fileId) await deleteGridFsFile(upload.fileId);
+    return { error: "That resource could not be updated." };
+  }
 
   revalidatePublic(resource.kind, resource.id);
   return { success: "Resource updated." };

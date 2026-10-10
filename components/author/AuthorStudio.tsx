@@ -10,6 +10,7 @@ export type AuthorSubmission = ResourceFormValues & {
   status: PublicationStatus;
   addedAt: string;
   reviewNote?: string;
+  hasFile: boolean;
 };
 
 const statusLabel: Record<PublicationStatus, string> = {
@@ -44,6 +45,16 @@ export function AuthorStudio({ submissions }: { submissions: AuthorSubmission[] 
                       {item.status === "rejected" && item.reviewNote ? (
                         <p className="mt-1 text-sm text-red-800">{item.reviewNote}</p>
                       ) : null}
+                      {item.hasFile && item.status !== "published" ? (
+                        <a
+                          href={item.kind === "book" ? `/api/books/${item.id}/file` : `/api/research/${item.id}/file`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 inline-block text-sm font-medium text-navy underline"
+                        >
+                          Preview PDF
+                        </a>
+                      ) : null}
                       {item.status === "rejected" ? (
                         <details className="mt-3">
                           <summary className="cursor-pointer text-sm font-medium text-navy">Edit and resubmit</summary>
@@ -55,6 +66,7 @@ export function AuthorStudio({ submissions }: { submissions: AuthorSubmission[] 
                               lockKind={item.kind}
                               resourceId={item.id}
                               initial={item}
+                              allowFileUpload
                             />
                           </div>
                         </details>

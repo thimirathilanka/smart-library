@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { draftFromForm, editsFromForm } from "@/lib/catalog-form";
 import { createBook, resubmitBook } from "@/lib/data/books";
-import { savePdfUpload } from "@/lib/data/files";
+import { savePdfUpload, saveReplacementPdf } from "@/lib/data/files";
 import { getMemberById } from "@/lib/data/members";
 import { createPaper, resubmitPaper } from "@/lib/data/papers";
 import { deleteGridFsFile } from "@/lib/db";
@@ -66,11 +66,23 @@ export async function resubmitResourceAction(_prev: CatalogState, formData: Form
   if (!id) return { error: "This submission cannot be edited." };
   if (!parsed.ok) return { error: parsed.error };
 
-  const updated =
-    parsed.kind === "book"
-      ? await resubmitBook(id, member._id, parsed.edits)
-      : await resubmitPaper(id, member._id, parsed.edits);
-  if (!updated) return { error: "Only a rejected submission can be edited and sent back for review." };
+  const upload = await saveReplacementPdf(formData.get("file"));
+  if (!upload.ok) return { error: upload.error };
+
+  let updated = false;
+  try {
+    updated =
+      parsed.kind === "book"
+        ? await resubmitBook(id, member._id, parsed.edits, upload.fileId)
+        : await resubmitPaper(id, member._id, parsed.edits, upload.fileId);
+  } catch {
+    if (upload.fileId) await deleteGridFsFile(upload.fileId);
+    return { error: "This submission could not be sent back for review." };
+  }
+  if (!updated) {
+    if (upload.fileId) await deleteGridFsFile(upload.fileId);
+    return { error: "Only a rejected submission can be edited and sent back for review." };
+  }
 
   revalidatePath("/author");
   revalidatePath("/admin");

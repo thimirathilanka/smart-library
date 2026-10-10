@@ -62,6 +62,16 @@ export async function uploadGridFsFile(file: File) {
   }
 }
 
+export async function gridFsFilenames(fileIds: Array<string | undefined>) {
+  const ids = [...new Set(fileIds.filter((id): id is string => Boolean(id && ObjectId.isValid(id))))];
+  const names = new Map<string, string>();
+  if (!ids.length) return names;
+  const bucket = new GridFSBucket(await getDb());
+  const files = await bucket.find({ _id: { $in: ids.map((id) => new ObjectId(id)) } }).toArray();
+  for (const file of files) names.set(file._id.toString(), file.filename);
+  return names;
+}
+
 export async function openGridFsDownload(fileId: string) {
   if (!ObjectId.isValid(fileId)) return null;
   const bucket = new GridFSBucket(await getDb());

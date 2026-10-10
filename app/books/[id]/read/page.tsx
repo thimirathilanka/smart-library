@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { ReaderView } from "@/components/read/ReaderView";
 import { TrackRead } from "@/components/read/TrackRead";
 import { getBook } from "@/lib/data/books";
-import { getMemberById } from "@/lib/data/members";
+import { getMemberById, hasActiveMembership } from "@/lib/data/members";
 import { auth } from "@/auth";
 
 export async function generateMetadata({ params }: PageProps<"/books/[id]/read">) {
@@ -23,16 +23,9 @@ export default async function BookReaderPage({
     if (!member) {
       redirect(`/login?callbackUrl=/books/${book._id}/read`);
     }
-    const today = new Date().toISOString().slice(0, 10);
     const isAdmin = member.status === "Active" && member.isAdmin;
-    const hasMembership = Boolean(
-      member.status === "Active" &&
-      member.isMember &&
-      member.membershipExpiresAt &&
-      member.membershipExpiresAt >= today,
-    );
-    if (!isAdmin && !hasMembership) {
-      redirect(`/books/${book._id}`);
+    if (!isAdmin && !hasActiveMembership(member)) {
+      redirect(`/books/${book._id}?locked=1`);
     }
   }
 

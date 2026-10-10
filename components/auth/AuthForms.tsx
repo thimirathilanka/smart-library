@@ -76,6 +76,7 @@ export function RegisterForm() {
           value={firstName}
           onChange={setFirstName}
           requiredMark
+          maxLength={80}
         />
         <Field
           label="Last name"
@@ -84,6 +85,7 @@ export function RegisterForm() {
           value={lastName}
           onChange={setLastName}
           requiredMark
+          maxLength={80}
         />
       </div>
       <fieldset>
@@ -126,6 +128,7 @@ export function RegisterForm() {
         onChange={setEmail}
         onBlur={() => setEmailTouched(true)}
         requiredMark
+        maxLength={254}
       />
       {emailTouched && !emailValid ? <Hint ok={false} text="Enter a valid email" /> : null}
       <RegisterPasswordInput
@@ -287,6 +290,7 @@ function Field({
   onChange,
   onBlur,
   requiredMark = false,
+  maxLength,
 }: {
   label: string;
   name: string;
@@ -297,6 +301,7 @@ function Field({
   onChange?: (value: string) => void;
   onBlur?: () => void;
   requiredMark?: boolean;
+  maxLength?: number;
 }) {
   const controlled = value != null && onChange != null;
 
@@ -311,6 +316,7 @@ function Field({
         name={name}
         type={type}
         required
+        maxLength={maxLength}
         minLength={type === "password" ? 8 : undefined}
         autoComplete={autoComplete}
         value={controlled ? value : undefined}

@@ -6,6 +6,15 @@ import type { LibraryItem, Member, MemberRecord, ResourceKind, UserLibrary } fro
 
 const emptyLibrary: UserLibrary = { saved: [], history: [], favorites: [] };
 
+export function hasActiveMembership(
+  member: Pick<Member, "status" | "isMember" | "membershipExpiresAt"> | null | undefined,
+) {
+  if (!member || member.status !== "Active" || !member.isMember || !member.membershipExpiresAt) {
+    return false;
+  }
+  return member.membershipExpiresAt >= new Date().toISOString().slice(0, 10);
+}
+
 export function publicMember(member: MemberRecord): Member {
   return {
     _id: member._id,

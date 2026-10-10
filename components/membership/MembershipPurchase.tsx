@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { SessionProvider, useSession } from "next-auth/react";
 import type { Session } from "next-auth";
 import { cancelMembershipAction, purchaseMembershipAction } from "@/app/actions/membership";
+import { formatLongDate } from "@/lib/format";
 import { TriangleAlert } from "lucide-react";
 
 export function MembershipPurchase({
@@ -26,10 +27,12 @@ function MembershipPurchaseButton({ renewal }: { renewal: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setNotice("");
     startTransition(async () => {
       const result = await purchaseMembershipAction();
       if (!result.success) {
@@ -37,6 +40,9 @@ function MembershipPurchaseButton({ renewal }: { renewal: boolean }) {
         return;
       }
 
+      if (result.membershipExpiresAt) {
+        setNotice(`Membership is active through ${formatLongDate(result.membershipExpiresAt)}.`);
+      }
       await update({
         isMember: result.isMember,
         isAuthor: data?.user?.isAuthor,
@@ -56,6 +62,7 @@ function MembershipPurchaseButton({ renewal }: { renewal: boolean }) {
           {pending ? "Updating membership…" : renewal ? "Renew membership" : "Get membership"}
         </button>
       </form>
+      {notice ? <p role="status" className="mt-3 text-sm text-emerald-800">{notice}</p> : null}
       {error ? <p role="alert" className="mt-3 text-sm text-red-700">{error}</p> : null}
     </>
   );
