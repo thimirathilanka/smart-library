@@ -22,6 +22,7 @@ export type ResourceFormValues = {
   access: AccessType;
   description: string;
   publicationStatus?: PublicationStatus;
+  currentFileName?: string | null;
 };
 
 export function ResourceForm({
@@ -57,6 +58,7 @@ export function ResourceForm({
             <button
               key={item}
               type="button"
+              aria-pressed={selected === item}
               onClick={() => setKind(item)}
               className={cn(
                 "rounded-full px-4 py-1.5 text-sm capitalize",
@@ -77,7 +79,20 @@ export function ResourceForm({
             <span className="mt-2 block text-sm font-medium text-navy">
               Upload {selected === "book" ? "book" : "research paper"} PDF
             </span>
-            <span className="mt-1 block text-xs text-muted">PDF only, up to 25 MB</span>
+            <span className="mt-1 block text-xs text-muted">
+              {requireFileUpload
+                ? "PDF only, up to 25 MB"
+                : "Optional. PDF only, up to 25 MB. Leave empty to keep the current file."}
+            </span>
+            {initial?.currentFileName ? (
+              <span className="mt-3 block text-sm text-navy">
+                Current file: <span className="font-medium">{initial.currentFileName}</span>
+              </span>
+            ) : initial?.currentFileName === "" ? (
+              <span className="mt-3 block text-sm text-muted">A PDF is attached.</span>
+            ) : initial?.currentFileName === null ? (
+              <span className="mt-3 block text-sm text-muted">No PDF is currently attached.</span>
+            ) : null}
             <input
               type="file"
               name="file"
@@ -87,23 +102,31 @@ export function ResourceForm({
             />
           </label>
         ) : null}
-        <Field label="Title" name="title" defaultValue={initial?.title} />
+        <Field label="Title" name="title" defaultValue={initial?.title} required maxLength={200} />
         {selected === "book" ? (
-          <Field label="Author" name="author" defaultValue={initial?.author} />
+          <Field label="Author" name="author" defaultValue={initial?.author} required maxLength={120} />
         ) : (
-          <Field label="Authors" name="authors" defaultValue={initial?.authors} />
+          <Field label="Authors" name="authors" defaultValue={initial?.authors} required maxLength={3000} />
         )}
         {selected === "book" ? (
-          <Field label="ISBN" name="isbn" defaultValue={initial?.isbn} />
+          <Field label="ISBN" name="isbn" defaultValue={initial?.isbn} maxLength={32} />
         ) : (
-          <Field label="DOI" name="doi" defaultValue={initial?.doi} />
+          <Field label="DOI" name="doi" defaultValue={initial?.doi} maxLength={200} />
         )}
         {selected === "book" ? (
-          <Field label="Category" name="category" defaultValue={initial?.category} />
+          <Field label="Category" name="category" defaultValue={initial?.category} required maxLength={80} />
         ) : (
-          <Field label="Research field" name="field" defaultValue={initial?.field} />
+          <Field label="Research field" name="field" defaultValue={initial?.field} required maxLength={80} />
         )}
-        <Field label="Year" name="year" defaultValue={initial ? String(initial.year) : undefined} />
+        <Field
+          label="Year"
+          name="year"
+          type="number"
+          required
+          min={1000}
+          max={new Date().getFullYear() + 1}
+          defaultValue={initial ? String(initial.year) : undefined}
+        />
         <label className="text-xs font-semibold tracking-wide text-muted uppercase">
           Access
           <select
@@ -133,12 +156,22 @@ export function ResourceForm({
           Description / abstract
           <textarea
             name="description"
+            required
+            maxLength={4000}
             defaultValue={initial?.description}
             className="mt-1.5 min-h-28 w-full rounded-lg border border-line px-3 py-2 text-sm font-normal text-ink outline-none"
           />
         </label>
-        {state.error ? <p className="text-sm text-red-700 sm:col-span-2">{state.error}</p> : null}
-        {state.success ? <p className="text-sm text-emerald-800 sm:col-span-2">{state.success}</p> : null}
+        {state.error ? (
+          <p role="alert" className="text-sm text-red-700 sm:col-span-2">
+            {state.error}
+          </p>
+        ) : null}
+        {state.success ? (
+          <p role="status" className="text-sm text-emerald-800 sm:col-span-2">
+            {state.success}
+          </p>
+        ) : null}
         <button
           type="submit"
           disabled={pending}
@@ -151,12 +184,35 @@ export function ResourceForm({
   );
 }
 
-function Field({ label, name, defaultValue }: { label: string; name: string; defaultValue?: string }) {
+function Field({
+  label,
+  name,
+  defaultValue,
+  required = false,
+  maxLength,
+  type = "text",
+  min,
+  max,
+}: {
+  label: string;
+  name: string;
+  defaultValue?: string;
+  required?: boolean;
+  maxLength?: number;
+  type?: string;
+  min?: number;
+  max?: number;
+}) {
   return (
     <label className="text-xs font-semibold tracking-wide text-muted uppercase">
       {label}
       <input
         name={name}
+        type={type}
+        required={required}
+        maxLength={type === "number" ? undefined : maxLength}
+        min={min}
+        max={max}
         defaultValue={defaultValue}
         className="mt-1.5 w-full rounded-lg border border-line px-3 py-2 text-sm font-normal text-ink outline-none"
       />

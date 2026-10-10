@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { LockKeyhole, X } from "lucide-react";
 
@@ -17,6 +17,7 @@ export function ReadAccessLink({
   hasMembership,
   signedIn,
   preview,
+  openOnMount = false,
   className,
   children,
 }: {
@@ -25,12 +26,18 @@ export function ReadAccessLink({
   hasMembership: boolean;
   signedIn: boolean;
   preview: ReaderPreview;
+  openOnMount?: boolean;
   className: string;
   children: ReactNode;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const blocked = requiresMembership && !hasMembership;
 
-  if (!requiresMembership || hasMembership) {
+  useEffect(() => {
+    if (openOnMount && blocked) dialogRef.current?.showModal();
+  }, [openOnMount, blocked]);
+
+  if (!blocked) {
     return (
       <Link href={href} className={className}>
         {children}

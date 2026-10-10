@@ -64,13 +64,22 @@ export async function createPaper(paper: ResearchPaper) {
   await papers.insertOne(paper);
 }
 
-export async function updatePaper(id: string, edits: PaperEdits, publicationStatus: NonNullable<ResearchPaper["publicationStatus"]>) {
+export async function updatePaper(
+  id: string,
+  edits: PaperEdits,
+  publicationStatus: NonNullable<ResearchPaper["publicationStatus"]>,
+  fileId?: string,
+) {
   const { papers } = await collections();
+  const existing = await papers.findOne({ _id: id });
+  if (!existing) return false;
   const result = await papers.updateOne(
     { _id: id },
-    { $set: { ...edits, publicationStatus }, $unset: { reviewNote: "" } },
+    { $set: { ...edits, publicationStatus, ...(fileId ? { fileId } : {}) }, $unset: { reviewNote: "" } },
   );
-  return result.matchedCount > 0;
+  if (result.matchedCount === 0) return false;
+  await removeReplacedFile(existing.fileId, fileId);
+  return true;
 }
 
 export async function deletePaper(id: string) {
@@ -100,13 +109,26 @@ export async function rejectPaper(id: string, reviewNote: string) {
   return result.matchedCount > 0;
 }
 
-export async function resubmitPaper(id: string, submittedBy: string, edits: PaperEdits) {
+export async function resubmitPaper(id: string, submittedBy: string, edits: PaperEdits, fileId?: string) {
   const { papers } = await collections();
+  const existing = await papers.findOne({ _id: id, submittedBy, publicationStatus: "rejected" });
+  if (!existing) return false;
   const result = await papers.updateOne(
     { _id: id, submittedBy, publicationStatus: "rejected" },
-    { $set: { ...edits, publicationStatus: "pending" }, $unset: { reviewNote: "" } },
+    { $set: { ...edits, publicationStatus: "pending", ...(fileId ? { fileId } : {}) }, $unset: { reviewNote: "" } },
   );
-  return result.matchedCount > 0;
+  if (result.matchedCount === 0) return false;
+  await removeReplacedFile(existing.fileId, fileId);
+  return true;
+}
+
+async function removeReplacedFile(previousId?: string, nextId?: string) {
+  if (!nextId || !previousId || previousId === nextId) return;
+  try {
+    await deleteGridFsFile(previousId);
+  } catch {
+    // The resource already points at the replacement.
+  }
 }
 
 export async function incrementPaperReads(id: string) {

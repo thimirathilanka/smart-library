@@ -1,4 +1,5 @@
 import { LoginForm } from "@/components/auth/AuthForms";
+import { safeCallbackPath } from "@/lib/safe-callback";
 
 export const metadata = { title: "Sign in" };
 
@@ -6,7 +7,7 @@ export default async function LoginPage({
   searchParams,
 }: PageProps<"/login">) {
   const params = await searchParams;
-  const callbackUrl = typeof params.callbackUrl === "string" ? params.callbackUrl : "/";
+  const callbackUrl = safeCallbackPath(typeof params.callbackUrl === "string" ? params.callbackUrl : "/");
 
   return (
     <div className="mx-auto max-w-md px-4 py-16 sm:px-6">

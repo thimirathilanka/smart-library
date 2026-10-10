@@ -19,7 +19,8 @@ function authorList(authors: string[]) {
 }
 
 export function paperAPA(paper: ResearchPaper) {
-  return `${authorList(paper.authors)} (${paper.year}). ${paper.title}. ${paper.venue}. https://doi.org/${paper.doi}`;
+  const doi = paper.doi ? ` https://doi.org/${paper.doi}` : "";
+  return `${authorList(paper.authors)} (${paper.year}). ${paper.title}. ${paper.venue}.${doi}`;
 }
 
 export function paperMLA(paper: ResearchPaper) {

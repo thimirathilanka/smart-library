@@ -64,13 +64,22 @@ export async function createBook(book: Book) {
   await books.insertOne(book);
 }
 
-export async function updateBook(id: string, edits: BookEdits, publicationStatus: NonNullable<Book["publicationStatus"]>) {
+export async function updateBook(
+  id: string,
+  edits: BookEdits,
+  publicationStatus: NonNullable<Book["publicationStatus"]>,
+  fileId?: string,
+) {
   const { books } = await collections();
+  const existing = await books.findOne({ _id: id });
+  if (!existing) return false;
   const result = await books.updateOne(
     { _id: id },
-    { $set: { ...edits, publicationStatus }, $unset: { reviewNote: "" } },
+    { $set: { ...edits, publicationStatus, ...(fileId ? { fileId } : {}) }, $unset: { reviewNote: "" } },
   );
-  return result.matchedCount > 0;
+  if (result.matchedCount === 0) return false;
+  await removeReplacedFile(existing.fileId, fileId);
+  return true;
 }
 
 export async function deleteBook(id: string) {
@@ -100,13 +109,26 @@ export async function rejectBook(id: string, reviewNote: string) {
   return result.matchedCount > 0;
 }
 
-export async function resubmitBook(id: string, submittedBy: string, edits: BookEdits) {
+export async function resubmitBook(id: string, submittedBy: string, edits: BookEdits, fileId?: string) {
   const { books } = await collections();
+  const existing = await books.findOne({ _id: id, submittedBy, publicationStatus: "rejected" });
+  if (!existing) return false;
   const result = await books.updateOne(
     { _id: id, submittedBy, publicationStatus: "rejected" },
-    { $set: { ...edits, publicationStatus: "pending" }, $unset: { reviewNote: "" } },
+    { $set: { ...edits, publicationStatus: "pending", ...(fileId ? { fileId } : {}) }, $unset: { reviewNote: "" } },
   );
-  return result.matchedCount > 0;
+  if (result.matchedCount === 0) return false;
+  await removeReplacedFile(existing.fileId, fileId);
+  return true;
+}
+
+async function removeReplacedFile(previousId?: string, nextId?: string) {
+  if (!nextId || !previousId || previousId === nextId) return;
+  try {
+    await deleteGridFsFile(previousId);
+  } catch {
+    // The resource already points at the replacement.
+  }
 }
 
 export async function incrementBookReads(id: string) {

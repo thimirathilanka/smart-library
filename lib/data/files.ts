@@ -4,6 +4,13 @@ import { uploadGridFsFile } from "@/lib/db";
 
 export const MAX_PDF_SIZE = 25 * 1024 * 1024;
 
+export async function saveReplacementPdf(value: FormDataEntryValue | null) {
+  if (!(value instanceof File) || value.size === 0) {
+    return { ok: true as const, fileId: undefined };
+  }
+  return savePdfUpload(value);
+}
+
 export async function savePdfUpload(value: FormDataEntryValue | null) {
   if (!(value instanceof File) || value.size === 0) {
     return { ok: false as const, error: "Choose a PDF file to upload." };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PaperCard } from "@/components/papers/PaperCard";
 import type { ResearchPaper } from "@/lib/types";
 
@@ -12,6 +12,9 @@ export function PaperCatalog({
   initialQuery?: string;
 }) {
   const [query, setQuery] = useState(initialQuery);
+  useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
   const [field, setField] = useState("all");
   const [author, setAuthor] = useState("all");
   const [year, setYear] = useState("all");

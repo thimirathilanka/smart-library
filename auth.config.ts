@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
+import { getMemberById, hasActiveMembership } from "@/lib/data/members";
 
 export const authConfig = {
   trustHost: true,
@@ -35,17 +36,20 @@ export const authConfig = {
       }
       return true;
     },
-    jwt({ token, user, trigger, session }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.isMember = user.isMember;
         token.isAdmin = user.isAdmin;
         token.isAuthor = user.isAuthor;
       }
-      if (trigger === "update" && session) {
-        if (typeof session.isMember === "boolean") token.isMember = session.isMember;
-        if (typeof session.isAuthor === "boolean") token.isAuthor = session.isAuthor;
-      }
+      if (!token.id) return token;
+
+      const member = await getMemberById(String(token.id));
+      const active = Boolean(member && member.status !== "Suspended");
+      token.isMember = hasActiveMembership(member);
+      token.isAdmin = Boolean(active && member?.isAdmin);
+      token.isAuthor = Boolean(active && member?.isAuthor);
       return token;
     },
     session({ session, token }) {

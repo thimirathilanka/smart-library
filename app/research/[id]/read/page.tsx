@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { ReaderView } from "@/components/read/ReaderView";
 import { TrackRead } from "@/components/read/TrackRead";
 import { getPaper } from "@/lib/data/papers";
-import { getMemberById } from "@/lib/data/members";
+import { getMemberById, hasActiveMembership } from "@/lib/data/members";
 import { auth } from "@/auth";
 
 export async function generateMetadata({
@@ -25,16 +25,9 @@ export default async function PaperReaderPage({
     if (!member) {
       redirect(`/login?callbackUrl=/research/${paper._id}/read`);
     }
-    const today = new Date().toISOString().slice(0, 10);
     const isAdmin = member.status === "Active" && member.isAdmin;
-    const hasMembership = Boolean(
-      member.status === "Active" &&
-      member.isMember &&
-      member.membershipExpiresAt &&
-      member.membershipExpiresAt >= today,
-    );
-    if (!isAdmin && !hasMembership) {
-      redirect(`/research/${paper._id}`);
+    if (!isAdmin && !hasActiveMembership(member)) {
+      redirect(`/research/${paper._id}?locked=1`);
     }
   }
 
@@ -64,8 +57,10 @@ export default async function PaperReaderPage({
               Keywords: {paper.keywords.join(", ")}.
             </p>
             <p>
-              <strong>2. Contribution.</strong> Findings are reported under DOI{" "}
-              {paper.doi} and indexed with the venue record for {paper.venue}.
+              <strong>2. Contribution.</strong>{" "}
+              {paper.doi
+                ? `Findings are reported under DOI ${paper.doi} and indexed with the venue record for ${paper.venue}.`
+                : `Findings are indexed with the venue record for ${paper.venue}.`}
             </p>
             <p>
               <strong>3. Closing.</strong> Related work, metadata, and formatted

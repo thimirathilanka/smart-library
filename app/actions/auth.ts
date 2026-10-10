@@ -9,7 +9,22 @@ import { incrementBookReads } from "@/lib/data/books";
 import { incrementMonthlyReads } from "@/lib/data/catalog";
 import { createMember, getMemberByEmail, recordReading, toggleLibraryList } from "@/lib/data/members";
 import { incrementPaperReads } from "@/lib/data/papers";
+import { safeCallbackPath } from "@/lib/safe-callback";
 import type { ResourceKind } from "@/lib/types";
+
+const NAME_MAX = 80;
+
+function isEmail(value: string) {
+  return value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function isResourceId(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= 80 && !value.includes("\0");
+}
+
+function isResourceKind(value: unknown): value is ResourceKind {
+  return value === "book" || value === "paper";
+}
 
 export type AuthState = {
   error?: string;
@@ -27,7 +42,7 @@ export type AuthState = {
 export async function loginAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  const callbackUrl = String(formData.get("callbackUrl") ?? "/") || "/";
+  const callbackUrl = safeCallbackPath(String(formData.get("callbackUrl") ?? "/"));
   try {
     await signIn("credentials", { email, password, redirectTo: callbackUrl });
   } catch (error) {
@@ -50,18 +65,22 @@ export async function registerAction(_prev: AuthState, formData: FormData): Prom
   const values = { firstName, lastName, email, accountType };
   const name = `${firstName} ${lastName}`.replace(/\s+/g, " ").trim();
 
-  if (!firstName || !lastName || !email || password.length < 8) {
+  if (!firstName || !lastName || firstName.length > NAME_MAX || lastName.length > NAME_MAX) {
     return {
-      error: "First name, last name, email, and a password of at least 8 characters are required.",
+      error: "First and last name are required and must be 80 characters or fewer.",
+      values,
+    };
+  }
+
+  if (!isEmail(email) || password.length < 8) {
+    return {
+      error: "Enter a valid email and a password of at least 8 characters.",
       values,
     };
   }
 
   if (password !== confirmPassword) {
-    return {
-      error: "Passwords do not match.",
-      values: { ...values, password, confirmPassword },
-    };
+    return { error: "Passwords do not match.", values };
   }
 
   const existing = await getMemberByEmail(email);
@@ -99,6 +118,7 @@ export async function signOutAction() {
 }
 
 export async function trackReadAction(kind: ResourceKind, id: string) {
+  if (!isResourceKind(kind) || !isResourceId(id)) return;
   if (kind === "book") await incrementBookReads(id);
   else await incrementPaperReads(id);
   await incrementMonthlyReads(kind === "book" ? "books" : "papers");
@@ -111,6 +131,7 @@ export async function trackReadAction(kind: ResourceKind, id: string) {
 }
 
 export async function toggleLibraryAction(list: "saved" | "favorites", resourceId: string, kind: ResourceKind) {
+  if ((list !== "saved" && list !== "favorites") || !isResourceId(resourceId) || !isResourceKind(kind)) return;
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   await toggleLibraryList(session.user.id, list, resourceId, kind);

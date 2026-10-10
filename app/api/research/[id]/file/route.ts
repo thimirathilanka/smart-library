@@ -1,8 +1,8 @@
 import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getMemberById } from "@/lib/data/members";
-import { getPaper } from "@/lib/data/papers";
+import { getMemberById, hasActiveMembership } from "@/lib/data/members";
+import { getPaperForStaff } from "@/lib/data/papers";
 import { openGridFsDownload } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -12,21 +12,23 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const paper = await getPaper(id);
+  const paper = await getPaperForStaff(id);
   if (!paper?.fileId) return new NextResponse("Not found", { status: 404 });
 
   const session = await auth();
   const member = session?.user?.id ? await getMemberById(session.user.id) : null;
+  const published = !paper.publicationStatus || paper.publicationStatus === "published";
   const activeAdmin = Boolean(member?.status === "Active" && member.isAdmin);
-  if (paper.access === "members" && !activeAdmin) {
-    const today = new Date().toISOString().slice(0, 10);
-    const activeMember = Boolean(
-      member?.status === "Active" &&
-      member.isMember &&
-      member.membershipExpiresAt &&
-      member.membershipExpiresAt >= today,
-    );
-    if (!activeMember) {
+  const ownerPreview = Boolean(
+    !published &&
+    member?.status === "Active" &&
+    member.isAuthor &&
+    paper.submittedBy &&
+    paper.submittedBy === member._id,
+  );
+  if (!published && !ownerPreview && !activeAdmin) return new NextResponse("Not found", { status: 404 });
+  if (!ownerPreview && paper.access === "members" && !activeAdmin) {
+    if (!hasActiveMembership(member)) {
       return new NextResponse("Forbidden", { status: session?.user ? 403 : 401 });
     }
   }

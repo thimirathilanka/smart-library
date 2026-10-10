@@ -1,6 +1,7 @@
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { auth } from "@/auth";
 import { getAdminCatalog } from "@/lib/data/catalog";
+import { gridFsFilenames } from "@/lib/db";
 
 export const metadata = {
   title: "Admin",
@@ -8,6 +9,11 @@ export const metadata = {
 
 export default async function AdminPage() {
   const [catalog, session] = await Promise.all([getAdminCatalog(), auth()]);
+  const storedNames = await gridFsFilenames([
+    ...catalog.books.map((book) => book.fileId),
+    ...catalog.papers.map((paper) => paper.fileId),
+  ]);
+  const fileNames = Object.fromEntries(storedNames);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -20,7 +26,11 @@ export default async function AdminPage() {
         resources are prepared for in-browser reading.
       </p>
       <div className="mt-8">
-        <AdminDashboard catalog={catalog} currentAdminId={session?.user?.id ?? ""} />
+        <AdminDashboard
+          catalog={catalog}
+          currentAdminId={session?.user?.id ?? ""}
+          fileNames={fileNames}
+        />
       </div>
     </div>
   );

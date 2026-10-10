@@ -1,8 +1,8 @@
 import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getBook } from "@/lib/data/books";
-import { getMemberById } from "@/lib/data/members";
+import { getBookForStaff } from "@/lib/data/books";
+import { getMemberById, hasActiveMembership } from "@/lib/data/members";
 import { openGridFsDownload } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -12,21 +12,23 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const book = await getBook(id);
+  const book = await getBookForStaff(id);
   if (!book?.fileId) return new NextResponse("Not found", { status: 404 });
 
   const session = await auth();
   const member = session?.user?.id ? await getMemberById(session.user.id) : null;
+  const published = !book.publicationStatus || book.publicationStatus === "published";
   const activeAdmin = Boolean(member?.status === "Active" && member.isAdmin);
-  if (book.access === "members" && !activeAdmin) {
-    const today = new Date().toISOString().slice(0, 10);
-    const activeMember = Boolean(
-      member?.status === "Active" &&
-      member.isMember &&
-      member.membershipExpiresAt &&
-      member.membershipExpiresAt >= today,
-    );
-    if (!activeMember) {
+  const ownerPreview = Boolean(
+    !published &&
+    member?.status === "Active" &&
+    member.isAuthor &&
+    book.submittedBy &&
+    book.submittedBy === member._id,
+  );
+  if (!published && !ownerPreview && !activeAdmin) return new NextResponse("Not found", { status: 404 });
+  if (!ownerPreview && book.access === "members" && !activeAdmin) {
+    if (!hasActiveMembership(member)) {
       return new NextResponse("Forbidden", { status: session?.user ? 403 : 401 });
     }
   }
