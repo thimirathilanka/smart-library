@@ -35,12 +35,16 @@ export const authConfig = {
       }
       return true;
     },
-    jwt({ token, user }) {
+    jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
         token.isMember = user.isMember;
         token.isAdmin = user.isAdmin;
         token.isAuthor = user.isAuthor;
+      }
+      if (trigger === "update" && session) {
+        if (typeof session.isMember === "boolean") token.isMember = session.isMember;
+        if (typeof session.isAuthor === "boolean") token.isAuthor = session.isAuthor;
       }
       return token;
     },

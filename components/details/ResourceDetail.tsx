@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
 import { BookOpen, Bookmark, Calendar, FileText, Hash, Languages, Quote } from "lucide-react";
 import { BookCover } from "@/components/ui/BookCover";
 import { AccessBadge } from "@/components/ui/AccessBadge";
@@ -8,6 +7,7 @@ import { CitationBlock } from "@/components/details/CitationBlock";
 import { BookCard } from "@/components/books/BookCard";
 import { PaperCard } from "@/components/papers/PaperCard";
 import { LibraryActions } from "@/components/library/LibraryActions";
+import { ReadAccessLink } from "@/components/details/ReadAccessLink";
 import { formatNumber } from "@/lib/format";
 import type { Book, ResearchPaper } from "@/lib/types";
 
@@ -15,12 +15,14 @@ export function BookDetail({
   book,
   related,
   signedIn = false,
+  hasMembership = false,
   saved = false,
   favorited = false,
 }: {
   book: Book;
   related: Book[];
   signedIn?: boolean;
+  hasMembership?: boolean;
   saved?: boolean;
   favorited?: boolean;
 }) {
@@ -29,13 +31,27 @@ export function BookDetail({
       <div className="grid gap-10 lg:grid-cols-[280px_1fr]">
         <div>
           <BookCover book={book} size="hero" className="mx-auto" />
-          <Link
+          <ReadAccessLink
             href={`/books/${book._id}/read`}
+            requiresMembership={book.access === "members"}
+            hasMembership={hasMembership}
+            signedIn={signedIn}
+            preview={{
+              kicker: `${book.publisher} · ${book.year}`,
+              title: book.title,
+              byline: book.author,
+              paragraphs: [
+                { text: book.description },
+                {
+                  text: `This opening chapter sets the terms of the inquiry: what is at stake, which methods will carry the argument, and how later sections will return to evidence. ${book.author} writes with care for both specialists and readers coming to ${book.title.toLowerCase()} for the first time.`,
+                },
+              ],
+            }}
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-navy py-3 text-sm font-medium text-white hover:bg-navy-mid"
           >
             <BookOpen className="size-4" />
             Read online
-          </Link>
+          </ReadAccessLink>
           <LibraryActions
             resourceId={book._id}
             kind="book"
@@ -89,12 +105,14 @@ export function PaperDetail({
   paper,
   related,
   signedIn = false,
+  hasMembership = false,
   saved = false,
   favorited = false,
 }: {
   paper: ResearchPaper;
   related: ResearchPaper[];
   signedIn?: boolean;
+  hasMembership?: boolean;
   saved?: boolean;
   favorited?: boolean;
 }) {
@@ -127,7 +145,32 @@ export function PaperDetail({
           </div>
           <h1 className="mt-3 font-serif text-3xl text-navy">{paper.title}</h1>
           <p className="mt-2 text-navy-mid">{paper.authors.join(" · ")}</p>
-          <LinkCta href={`/research/${paper._id}/read`} />
+          <ReadAccessLink
+            href={`/research/${paper._id}/read`}
+            requiresMembership={paper.access === "members"}
+            hasMembership={hasMembership}
+            signedIn={signedIn}
+            preview={{
+              kicker: `${paper.venue} · ${paper.year}`,
+              title: paper.title,
+              byline: paper.authors.join(", "),
+              paragraphs: [
+                { label: "Abstract.", text: paper.abstract },
+                {
+                  label: "1. Introduction.",
+                  text: `The authors situate the problem in ${paper.field.toLowerCase()} and outline the contribution that follows. Keywords: ${paper.keywords.join(", ")}.`,
+                },
+                {
+                  label: "2. Contribution.",
+                  text: `Findings are reported under DOI ${paper.doi} and indexed with the venue record for ${paper.venue}.`,
+                },
+              ],
+            }}
+            className="mt-5 inline-flex items-center gap-2 rounded-full bg-navy px-5 py-2.5 text-sm font-medium text-white hover:bg-navy-mid"
+          >
+            <FileText className="size-4" />
+            Read online
+          </ReadAccessLink>
           <LibraryActions
             resourceId={paper._id}
             kind="paper"
@@ -171,18 +214,6 @@ export function PaperDetail({
         </section>
       ) : null}
     </div>
-  );
-}
-
-function LinkCta({ href }: { href: string }) {
-  return (
-    <Link
-      href={href}
-      className="mt-5 inline-flex items-center gap-2 rounded-full bg-navy px-5 py-2.5 text-sm font-medium text-white hover:bg-navy-mid"
-    >
-      <FileText className="size-4" />
-      Read online
-    </Link>
   );
 }
 

@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { draftFromForm, editsFromForm } from "@/lib/catalog-form";
 import { createBook, resubmitBook } from "@/lib/data/books";
+import { savePdfUpload } from "@/lib/data/files";
 import { getMemberById } from "@/lib/data/members";
 import { createPaper, resubmitPaper } from "@/lib/data/papers";
+import { deleteGridFsFile } from "@/lib/db";
 
 export type CatalogState = {
   error?: string;
@@ -30,10 +32,28 @@ export async function submitResourceAction(_prev: CatalogState, formData: FormDa
   });
   if (!draft.ok) return { error: draft.error };
 
-  if (draft.kind === "paper") await createPaper(draft.paper);
-  else await createBook(draft.book);
+  if (draft.kind === "paper") {
+    const upload = await savePdfUpload(formData.get("file"));
+    if (!upload.ok) return { error: upload.error };
+    try {
+      await createPaper({ ...draft.paper, fileId: upload.fileId });
+    } catch {
+      await deleteGridFsFile(upload.fileId);
+      return { error: "The paper could not be submitted. Please try again." };
+    }
+  } else {
+    const upload = await savePdfUpload(formData.get("file"));
+    if (!upload.ok) return { error: upload.error };
+    try {
+      await createBook({ ...draft.book, fileId: upload.fileId });
+    } catch {
+      await deleteGridFsFile(upload.fileId);
+      return { error: "The book could not be submitted. Please try again." };
+    }
+  }
 
   revalidatePath("/author");
+  revalidatePath("/admin");
   return { success: "Submitted for review. It stays hidden until an admin publishes it." };
 }
 

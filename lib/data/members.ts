@@ -37,6 +37,65 @@ export async function getMemberById(id: string) {
   return members.findOne({ _id: id });
 }
 
+export async function grantMembership(memberId: string) {
+  const { members } = await collections();
+  const expiresAt = new Date();
+  expiresAt.setUTCDate(expiresAt.getUTCDate() + 30);
+  const membershipExpiresAt = expiresAt.toISOString().slice(0, 10);
+  const result = await members.updateOne(
+    { _id: memberId },
+    { $set: { isMember: true, membershipExpiresAt } },
+  );
+  return result.matchedCount > 0 ? membershipExpiresAt : null;
+}
+
+export async function cancelMembership(memberId: string) {
+  const { members } = await collections();
+  const result = await members.updateOne(
+    { _id: memberId },
+    { $set: { isMember: false }, $unset: { membershipExpiresAt: "" } },
+  );
+  return result.matchedCount > 0;
+}
+
+export async function setMemberAuthor(memberId: string, isAuthor: boolean) {
+  const { members } = await collections();
+  const result = await members.updateOne({ _id: memberId }, { $set: { isAuthor } });
+  return result.matchedCount > 0;
+}
+
+export async function setMemberAdmin(
+  memberId: string,
+  isAdmin: boolean,
+): Promise<"updated" | "not-found" | "last-admin"> {
+  const { members } = await collections();
+  const target = await members.findOne({ _id: memberId });
+  if (!target) return "not-found";
+  if (!isAdmin && target.isAdmin && target.status === "Active") {
+    const activeAdmins = await members.countDocuments({ isAdmin: true, status: "Active" });
+    if (activeAdmins <= 1) return "last-admin";
+  }
+
+  await members.updateOne({ _id: memberId }, { $set: { isAdmin } });
+  return "updated";
+}
+
+export async function setMemberStatus(
+  memberId: string,
+  status: Member["status"],
+): Promise<"updated" | "not-found" | "last-admin"> {
+  const { members } = await collections();
+  const target = await members.findOne({ _id: memberId });
+  if (!target) return "not-found";
+  if (status === "Suspended" && target.isAdmin && target.status === "Active") {
+    const activeAdmins = await members.countDocuments({ isAdmin: true, status: "Active" });
+    if (activeAdmins <= 1) return "last-admin";
+  }
+
+  await members.updateOne({ _id: memberId }, { $set: { status } });
+  return "updated";
+}
+
 export async function createMember(member: MemberRecord) {
   const { members } = await collections();
   await members.insertOne({

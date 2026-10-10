@@ -1,6 +1,6 @@
 import "server-only";
 
-import { collections } from "@/lib/db";
+import { collections, deleteGridFsFile } from "@/lib/db";
 import { toPlain } from "@/lib/data/serialize";
 import { withPublished } from "@/lib/data/publication";
 import type { PaperEdits } from "@/lib/catalog-form";
@@ -62,6 +62,24 @@ export async function relatedPapers(paper: ResearchPaper, limit = 3) {
 export async function createPaper(paper: ResearchPaper) {
   const { papers } = await collections();
   await papers.insertOne(paper);
+}
+
+export async function updatePaper(id: string, edits: PaperEdits, publicationStatus: NonNullable<ResearchPaper["publicationStatus"]>) {
+  const { papers } = await collections();
+  const result = await papers.updateOne(
+    { _id: id },
+    { $set: { ...edits, publicationStatus }, $unset: { reviewNote: "" } },
+  );
+  return result.matchedCount > 0;
+}
+
+export async function deletePaper(id: string) {
+  const { papers } = await collections();
+  const paper = await papers.findOne({ _id: id });
+  if (!paper) return false;
+  if (paper.fileId) await deleteGridFsFile(paper.fileId);
+  const result = await papers.deleteOne({ _id: id });
+  return result.deletedCount > 0;
 }
 
 export async function publishPaper(id: string) {

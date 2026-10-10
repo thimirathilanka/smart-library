@@ -1,6 +1,6 @@
 import "server-only";
 
-import { collections } from "@/lib/db";
+import { collections, deleteGridFsFile } from "@/lib/db";
 import { toPlain } from "@/lib/data/serialize";
 import { withPublished } from "@/lib/data/publication";
 import type { BookEdits } from "@/lib/catalog-form";
@@ -62,6 +62,24 @@ export async function relatedBooks(book: Book, limit = 4) {
 export async function createBook(book: Book) {
   const { books } = await collections();
   await books.insertOne(book);
+}
+
+export async function updateBook(id: string, edits: BookEdits, publicationStatus: NonNullable<Book["publicationStatus"]>) {
+  const { books } = await collections();
+  const result = await books.updateOne(
+    { _id: id },
+    { $set: { ...edits, publicationStatus }, $unset: { reviewNote: "" } },
+  );
+  return result.matchedCount > 0;
+}
+
+export async function deleteBook(id: string) {
+  const { books } = await collections();
+  const book = await books.findOne({ _id: id });
+  if (!book) return false;
+  if (book.fileId) await deleteGridFsFile(book.fileId);
+  const result = await books.deleteOne({ _id: id });
+  return result.deletedCount > 0;
 }
 
 export async function publishBook(id: string) {

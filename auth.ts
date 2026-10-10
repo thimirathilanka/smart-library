@@ -2,10 +2,22 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import { authConfig } from "@/auth.config";
-import { getMemberByEmail } from "@/lib/data/members";
+import { getMemberByEmail, getMemberById } from "@/lib/data/members";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
+  callbacks: {
+    ...authConfig.callbacks,
+    async jwt(args) {
+      const token = await authConfig.callbacks.jwt(args);
+      if (args.trigger === "update" && token.id) {
+        const member = await getMemberById(String(token.id));
+        token.isMember = Boolean(member?.isMember);
+        token.isAuthor = Boolean(member?.isAuthor);
+      }
+      return token;
+    },
+  },
   providers: [
     Credentials({
       credentials: {
