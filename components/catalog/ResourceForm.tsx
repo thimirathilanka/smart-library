@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, type FormEvent } from "react";
+import { useActionState, useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { Upload, X } from "lucide-react";
 import { cn } from "@/lib/format";
 import type { AccessType, PublicationStatus, ResourceKind } from "@/lib/types";
@@ -58,6 +58,9 @@ export function ResourceForm({
   const [nextFileName, setNextFileName] = useState<string | null>(null);
   const [nextCoverName, setNextCoverName] = useState<string | null>(null);
   const [clientError, setClientError] = useState<string | null>(null);
+  const [fileDropError, setFileDropError] = useState<string | null>(null);
+  const [coverDropError, setCoverDropError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState<"file" | "cover" | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const selected = lockKind ?? kind;
@@ -71,6 +74,8 @@ export function ResourceForm({
     setNextFileName(null);
     setNextCoverName(null);
     setClientError(null);
+    setFileDropError(null);
+    setCoverDropError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (coverInputRef.current) coverInputRef.current.value = "";
   }, [state.success]);
@@ -79,13 +84,78 @@ export function ResourceForm({
     setNextFileName(null);
     setKeepFile(true);
     setClientError(null);
+    setFileDropError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   function clearChosenCover() {
     setNextCoverName(null);
     setKeepCover(true);
+    setCoverDropError(null);
     if (coverInputRef.current) coverInputRef.current.value = "";
+  }
+
+  function placeFile(input: HTMLInputElement | null, file: File) {
+    if (!input) return;
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    input.files = transfer.files;
+  }
+
+  function takeDroppedFile(target: "file" | "cover", file: File | undefined) {
+    if (target === "file") {
+      if (!file || (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf"))) {
+        setFileDropError(file ? "Only PDF files can be uploaded." : "Drop a PDF file.");
+        return;
+      }
+      placeFile(fileInputRef.current, file);
+      setNextFileName(file.name);
+      setClientError(null);
+      setFileDropError(null);
+      return;
+    }
+    const image =
+      file &&
+      (file.type === "image/jpeg" ||
+        file.type === "image/png" ||
+        file.type === "image/webp" ||
+        /\.(jpe?g|png|webp)$/i.test(file.name));
+    if (!file || !image) {
+      setCoverDropError(file ? "Cover images must be JPEG, PNG, or WebP." : "Drop a cover image.");
+      return;
+    }
+    placeFile(coverInputRef.current, file);
+    setNextCoverName(file.name);
+    setCoverDropError(null);
+  }
+
+  function dropHandlers(target: "file" | "cover") {
+    return {
+      onDragEnter: (event: DragEvent<HTMLDivElement>) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setDragOver(target);
+      },
+      onDragOver: (event: DragEvent<HTMLDivElement>) => {
+        event.preventDefault();
+        event.stopPropagation();
+        event.dataTransfer.dropEffect = "copy";
+        setDragOver(target);
+      },
+      onDragLeave: (event: DragEvent<HTMLDivElement>) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const next = event.relatedTarget;
+        if (next instanceof Node && event.currentTarget.contains(next)) return;
+        setDragOver((current) => (current === target ? null : current));
+      },
+      onDrop: (event: DragEvent<HTMLDivElement>) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setDragOver(null);
+        takeDroppedFile(target, event.dataTransfer.files?.[0]);
+      },
+    };
   }
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -125,7 +195,13 @@ export function ResourceForm({
           </>
         ) : null}
         {allowFileUpload ? (
-          <div className="rounded-xl border border-dashed border-navy/30 bg-paper px-5 py-6 text-center sm:col-span-2">
+          <div
+            {...dropHandlers("file")}
+            className={cn(
+              "rounded-xl border border-dashed bg-paper px-5 py-6 text-center",
+              dragOver === "file" ? "border-navy bg-white" : "border-navy/30",
+            )}
+          >
             <Upload className="mx-auto size-6 text-navy-soft" aria-hidden="true" />
             <span className="mt-2 block text-sm font-medium text-navy">
               Upload {selected === "book" ? "book" : "research paper"} PDF
@@ -152,12 +228,13 @@ export function ResourceForm({
             ) : !manageExistingFiles && initial?.currentFileName === null ? (
               <span className="mt-3 block text-sm text-muted">No PDF is currently attached.</span>
             ) : null}
-            {clientError ? (
+            {clientError || fileDropError ? (
               <p role="alert" className="mt-3 text-sm text-red-700">
-                {clientError}
+                {clientError || fileDropError}
               </p>
             ) : null}
             {manageExistingFiles ? <span className="mt-4 block text-xs font-medium text-navy">Add a new PDF</span> : null}
+            <span className="mt-3 block text-xs text-muted">Drop a PDF here, or browse.</span>
             <input
               ref={fileInputRef}
               type="file"
@@ -167,13 +244,20 @@ export function ResourceForm({
               onChange={(event) => {
                 setNextFileName(event.target.files?.[0]?.name ?? null);
                 setClientError(null);
+                setFileDropError(null);
               }}
               className="mt-4 block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-medium file:text-navy hover:file:bg-white/70"
             />
           </div>
         ) : null}
         {allowFileUpload ? (
-          <div className="rounded-xl border border-dashed border-navy/30 bg-paper px-5 py-6 text-center sm:col-span-2">
+          <div
+            {...dropHandlers("cover")}
+            className={cn(
+              "rounded-xl border border-dashed bg-paper px-5 py-6 text-center",
+              dragOver === "cover" ? "border-navy bg-white" : "border-navy/30",
+            )}
+          >
             <Upload className="mx-auto size-6 text-navy-soft" aria-hidden="true" />
             <span className="mt-2 block text-sm font-medium text-navy">Cover image</span>
             <span className="mt-1 block text-xs text-muted">
@@ -202,13 +286,22 @@ export function ResourceForm({
             ) : initial ? (
               <span className="mt-3 block text-sm text-muted">No cover image yet.</span>
             ) : null}
+            {coverDropError ? (
+              <p role="alert" className="mt-3 text-sm text-red-700">
+                {coverDropError}
+              </p>
+            ) : null}
             {manageExistingFiles ? <span className="mt-4 block text-xs font-medium text-navy">Add a new cover</span> : null}
+            <span className="mt-3 block text-xs text-muted">Drop an image here, or browse.</span>
             <input
               ref={coverInputRef}
               type="file"
               name="cover"
               accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-              onChange={(event) => setNextCoverName(event.target.files?.[0]?.name ?? null)}
+              onChange={(event) => {
+                setNextCoverName(event.target.files?.[0]?.name ?? null);
+                setCoverDropError(null);
+              }}
               className="mt-4 block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-medium file:text-navy hover:file:bg-white/70"
             />
           </div>
