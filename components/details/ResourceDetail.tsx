@@ -150,6 +150,13 @@ export function PaperDetail({
           </div>
         </div>
         <div>
+          {paper.coverId ? (
+            <img
+              src={`/api/research/${paper._id}/cover`}
+              alt=""
+              className="mb-5 h-40 w-28 rounded-sm object-cover shadow-md"
+            />
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <AccessBadge access={paper.access} />
             <span className="rounded-full bg-paper px-2.5 py-0.5 text-xs text-navy-mid ring-1 ring-line">

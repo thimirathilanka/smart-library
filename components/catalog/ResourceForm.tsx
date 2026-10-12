@@ -23,6 +23,7 @@ export type ResourceFormValues = {
   description: string;
   publicationStatus?: PublicationStatus;
   currentFileName?: string | null;
+  hasCover?: boolean;
 };
 
 export function ResourceForm({
@@ -102,6 +103,27 @@ export function ResourceForm({
             />
           </label>
         ) : null}
+        {allowFileUpload ? (
+          <label className="rounded-xl border border-dashed border-navy/30 bg-paper px-5 py-6 text-center sm:col-span-2">
+            <Upload className="mx-auto size-6 text-navy-soft" aria-hidden="true" />
+            <span className="mt-2 block text-sm font-medium text-navy">Cover image</span>
+            <span className="mt-1 block text-xs text-muted">
+              Optional. JPEG, PNG, or WebP, up to 2 MB.
+              {initial ? " Leave empty to keep the current cover." : ""}
+            </span>
+            {initial?.hasCover ? (
+              <span className="mt-3 block text-sm text-navy">A cover image is attached.</span>
+            ) : initial ? (
+              <span className="mt-3 block text-sm text-muted">No cover image yet.</span>
+            ) : null}
+            <input
+              type="file"
+              name="cover"
+              accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+              className="mt-4 block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-medium file:text-navy hover:file:bg-white/70"
+            />
+          </label>
+        ) : null}
         <Field label="Title" name="title" defaultValue={initial?.title} required maxLength={200} />
         {selected === "book" ? (
           <Field label="Author" name="author" defaultValue={initial?.author} required maxLength={120} />
@@ -149,6 +171,7 @@ export function ResourceForm({
               <option value="pending">Pending</option>
               <option value="published">Published</option>
               <option value="rejected">Rejected</option>
+              <option value="withdrawn">Withdrawn</option>
             </select>
           </label>
         ) : null}

@@ -1,31 +1,29 @@
-import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { getBookForStaff } from "@/lib/data/books";
-import { getMemberById, hasActiveMembership } from "@/lib/data/members";
-import { openGridFsDownload } from "@/lib/db";
+import { hasActiveMembership } from "@/lib/data/members";
+import { isResourceOwner, previewSession, storedFileResponse, wantsRevision } from "@/lib/data/media";
 
 export const runtime = "nodejs";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   const book = await getBookForStaff(id);
-  if (!book?.fileId) return new NextResponse("Not found", { status: 404 });
+  if (!book) return new NextResponse("Not found", { status: 404 });
 
-  const session = await auth();
-  const member = session?.user?.id ? await getMemberById(session.user.id) : null;
+  const { session, member, activeAdmin, activeAuthor } = await previewSession();
+  const owner = isResourceOwner(activeAuthor, member?._id, book.submittedBy);
   const published = !book.publicationStatus || book.publicationStatus === "published";
-  const activeAdmin = Boolean(member?.status === "Active" && member.isAdmin);
-  const ownerPreview = Boolean(
-    !published &&
-    member?.status === "Active" &&
-    member.isAuthor &&
-    book.submittedBy &&
-    book.submittedBy === member._id,
-  );
+
+  if (wantsRevision(request)) {
+    if (!book.revision?.fileId || (!owner && !activeAdmin)) return new NextResponse("Not found", { status: 404 });
+    return storedFileResponse(book.revision.fileId, `${book.revision.title}.pdf`, "application/pdf");
+  }
+
+  if (!book.fileId) return new NextResponse("Not found", { status: 404 });
+  const ownerPreview = !published && owner;
   if (!published && !ownerPreview && !activeAdmin) return new NextResponse("Not found", { status: 404 });
   if (!ownerPreview && book.access === "members" && !activeAdmin) {
     if (!hasActiveMembership(member)) {
@@ -33,15 +31,5 @@ export async function GET(
     }
   }
 
-  const stream = await openGridFsDownload(book.fileId);
-  if (!stream) return new NextResponse("Not found", { status: 404 });
-
-  return new Response(Readable.toWeb(stream) as ReadableStream, {
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(`${book.title}.pdf`)}`,
-      "Cache-Control": "private, no-store",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
+  return storedFileResponse(book.fileId, `${book.title}.pdf`, "application/pdf");
 }

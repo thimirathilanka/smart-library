@@ -4,11 +4,29 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { summarizeForCatalog } from "@/lib/ai/summarize";
 import { draftFromForm, editsFromForm } from "@/lib/catalog-form";
-import { createBook, resubmitBook, setBookSummary } from "@/lib/data/books";
-import { savePdfUpload, saveReplacementPdf } from "@/lib/data/files";
+import {
+  cancelBookRevision,
+  createBook,
+  deleteAuthorBook,
+  resubmitBook,
+  setBookRevisionSummary,
+  setBookSummary,
+  submitBookRevision,
+  withdrawBook,
+} from "@/lib/data/books";
+import { readCatalogUploads } from "@/lib/data/files";
 import { getMemberById } from "@/lib/data/members";
-import { createPaper, resubmitPaper, setPaperSummary } from "@/lib/data/papers";
-import { deleteGridFsFile } from "@/lib/db";
+import {
+  cancelPaperRevision,
+  createPaper,
+  deleteAuthorPaper,
+  resubmitPaper,
+  setPaperRevisionSummary,
+  setPaperSummary,
+  submitPaperRevision,
+  withdrawPaper,
+} from "@/lib/data/papers";
+import { discardGridFsFiles } from "@/lib/db";
 import type { ResourceKind } from "@/lib/types";
 
 export type CatalogState = {
@@ -24,6 +42,13 @@ async function requireActiveAuthor() {
   return member;
 }
 
+function resourceIdentity(formData: FormData) {
+  const id = String(formData.get("id") ?? "").trim();
+  const kind = String(formData.get("kind") ?? "");
+  if (!id || (kind !== "book" && kind !== "paper")) return null;
+  return { id, kind: kind as ResourceKind };
+}
+
 export async function submitResourceAction(_prev: CatalogState, formData: FormData): Promise<CatalogState> {
   const member = await requireActiveAuthor();
   if (!member) return { error: "You do not have permission to submit resources." };
@@ -34,23 +59,30 @@ export async function submitResourceAction(_prev: CatalogState, formData: FormDa
   });
   if (!draft.ok) return { error: draft.error };
 
+  const upload = await readCatalogUploads(formData, "required");
+  if (!upload.ok) return { error: upload.error };
+
   if (draft.kind === "paper") {
-    const upload = await savePdfUpload(formData.get("file"));
-    if (!upload.ok) return { error: upload.error };
     try {
-      await createPaper({ ...draft.paper, fileId: upload.fileId });
+      await createPaper({
+        ...draft.paper,
+        fileId: upload.fileId,
+        ...(upload.coverId ? { coverId: upload.coverId } : {}),
+      });
     } catch {
-      await deleteGridFsFile(upload.fileId);
+      await discardGridFsFiles([upload.fileId, upload.coverId]);
       return { error: "The paper could not be submitted. Please try again." };
     }
     await storeSummary("paper", draft.paper._id, draft.paper.title, draft.paper.abstract);
   } else {
-    const upload = await savePdfUpload(formData.get("file"));
-    if (!upload.ok) return { error: upload.error };
     try {
-      await createBook({ ...draft.book, fileId: upload.fileId });
+      await createBook({
+        ...draft.book,
+        fileId: upload.fileId!,
+        ...(upload.coverId ? { coverId: upload.coverId } : {}),
+      });
     } catch {
-      await deleteGridFsFile(upload.fileId);
+      await discardGridFsFiles([upload.fileId, upload.coverId]);
       return { error: "The book could not be submitted. Please try again." };
     }
     await storeSummary("book", draft.book._id, draft.book.title, draft.book.description);
@@ -70,22 +102,22 @@ export async function resubmitResourceAction(_prev: CatalogState, formData: Form
   if (!id) return { error: "This submission cannot be edited." };
   if (!parsed.ok) return { error: parsed.error };
 
-  const upload = await saveReplacementPdf(formData.get("file"));
+  const upload = await readCatalogUploads(formData, "optional");
   if (!upload.ok) return { error: upload.error };
 
   let updated = false;
   try {
     updated =
       parsed.kind === "book"
-        ? await resubmitBook(id, member._id, parsed.edits, upload.fileId)
-        : await resubmitPaper(id, member._id, parsed.edits, upload.fileId);
+        ? await resubmitBook(id, member._id, parsed.edits, upload.fileId, upload.coverId)
+        : await resubmitPaper(id, member._id, parsed.edits, upload.fileId, upload.coverId);
   } catch {
-    if (upload.fileId) await deleteGridFsFile(upload.fileId);
+    await discardGridFsFiles([upload.fileId, upload.coverId]);
     return { error: "This submission could not be sent back for review." };
   }
   if (!updated) {
-    if (upload.fileId) await deleteGridFsFile(upload.fileId);
-    return { error: "Only a rejected submission can be edited and sent back for review." };
+    await discardGridFsFiles([upload.fileId, upload.coverId]);
+    return { error: "Only your unpublished submission can be edited and sent for review." };
   }
 
   await storeSummary(
@@ -97,7 +129,97 @@ export async function resubmitResourceAction(_prev: CatalogState, formData: Form
 
   revalidatePath("/author");
   revalidatePath("/admin");
-  return { success: "Sent back for review." };
+  return { success: "Sent for review." };
+}
+
+export async function submitRevisionAction(_prev: CatalogState, formData: FormData): Promise<CatalogState> {
+  const member = await requireActiveAuthor();
+  if (!member) return { error: "You do not have permission to submit resources." };
+
+  const id = String(formData.get("id") ?? "").trim();
+  const parsed = editsFromForm(formData);
+  if (!id) return { error: "This title cannot be updated." };
+  if (!parsed.ok) return { error: parsed.error };
+
+  const upload = await readCatalogUploads(formData, "optional");
+  if (!upload.ok) return { error: upload.error };
+
+  let updated = false;
+  try {
+    updated =
+      parsed.kind === "book"
+        ? await submitBookRevision(id, member._id, parsed.edits, upload.fileId, upload.coverId)
+        : await submitPaperRevision(id, member._id, parsed.edits, upload.fileId, upload.coverId);
+  } catch {
+    await discardGridFsFiles([upload.fileId, upload.coverId]);
+    return { error: "The new version could not be sent for review." };
+  }
+  if (!updated) {
+    await discardGridFsFiles([upload.fileId, upload.coverId]);
+    return { error: "Only a published title you submitted can get a new version." };
+  }
+
+  await storeRevisionSummary(
+    parsed.kind,
+    id,
+    parsed.edits.title,
+    parsed.kind === "book" ? parsed.edits.description : parsed.edits.abstract,
+  );
+
+  revalidatePath("/author");
+  revalidatePath("/admin");
+  return { success: "New version sent for review. The published copy stays online." };
+}
+
+export async function cancelRevisionAction(_prev: CatalogState, formData: FormData): Promise<CatalogState> {
+  const member = await requireActiveAuthor();
+  if (!member) return { error: "You do not have permission to submit resources." };
+  const resource = resourceIdentity(formData);
+  if (!resource) return { error: "That version could not be cancelled." };
+
+  const cancelled =
+    resource.kind === "book"
+      ? await cancelBookRevision(resource.id, member._id)
+      : await cancelPaperRevision(resource.id, member._id);
+  if (!cancelled) return { error: "There is no version to cancel." };
+
+  revalidatePath("/author");
+  revalidatePath("/admin");
+  return { success: "The new version was cancelled. The published copy is unchanged." };
+}
+
+export async function withdrawResourceAction(_prev: CatalogState, formData: FormData): Promise<CatalogState> {
+  const member = await requireActiveAuthor();
+  if (!member) return { error: "You do not have permission to submit resources." };
+  const resource = resourceIdentity(formData);
+  if (!resource) return { error: "That submission could not be withdrawn." };
+
+  const withdrawn =
+    resource.kind === "book"
+      ? await withdrawBook(resource.id, member._id)
+      : await withdrawPaper(resource.id, member._id);
+  if (!withdrawn) return { error: "Only a submission waiting for review can be withdrawn." };
+
+  revalidatePath("/author");
+  revalidatePath("/admin");
+  return { success: "Withdrawn from review. You can edit it and send it again." };
+}
+
+export async function deleteAuthorResourceAction(_prev: CatalogState, formData: FormData): Promise<CatalogState> {
+  const member = await requireActiveAuthor();
+  if (!member) return { error: "You do not have permission to submit resources." };
+  const resource = resourceIdentity(formData);
+  if (!resource) return { error: "That submission could not be deleted." };
+
+  const deleted =
+    resource.kind === "book"
+      ? await deleteAuthorBook(resource.id, member._id)
+      : await deleteAuthorPaper(resource.id, member._id);
+  if (!deleted) return { error: "Only your unpublished submission can be deleted." };
+
+  revalidatePath("/author");
+  revalidatePath("/admin");
+  return { success: "Submission deleted." };
 }
 
 async function storeSummary(kind: ResourceKind, id: string, title: string, source: string) {
@@ -108,5 +230,16 @@ async function storeSummary(kind: ResourceKind, id: string, title: string, sourc
     else await setPaperSummary(id, summary);
   } catch {
     // The submission is already saved. A missing summary does not undo it.
+  }
+}
+
+async function storeRevisionSummary(kind: ResourceKind, id: string, title: string, source: string) {
+  try {
+    const summary = await summarizeForCatalog({ kind, title, source });
+    if (!summary) return;
+    if (kind === "book") await setBookRevisionSummary(id, summary);
+    else await setPaperRevisionSummary(id, summary);
+  } catch {
+    // The version is already waiting. A missing summary does not undo it.
   }
 }

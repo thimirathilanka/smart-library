@@ -2,7 +2,38 @@ export type AccessType = "open" | "members";
 
 export type ResourceKind = "book" | "paper";
 
-export type PublicationStatus = "pending" | "published" | "rejected";
+export type PublicationStatus = "pending" | "published" | "rejected" | "withdrawn";
+
+export type RevisionStatus = "pending" | "rejected";
+
+type RevisionMeta = {
+  status: RevisionStatus;
+  submittedAt: string;
+  reviewNote?: string;
+  fileId?: string;
+  coverId?: string;
+  aiSummary?: string;
+};
+
+export type BookRevision = RevisionMeta & {
+  title: string;
+  author: string;
+  category: string;
+  year: number;
+  isbn: string;
+  access: AccessType;
+  description: string;
+};
+
+export type PaperRevision = RevisionMeta & {
+  title: string;
+  authors: string[];
+  abstract: string;
+  field: string;
+  year: number;
+  doi: string;
+  access: AccessType;
+};
 
 export type Book = {
   _id: string;
@@ -32,7 +63,9 @@ export type Book = {
   submittedBy?: string;
   reviewNote?: string;
   fileId?: string;
+  coverId?: string;
   aiSummary?: string;
+  revision?: BookRevision;
 };
 
 export type ResearchPaper = {
@@ -56,7 +89,9 @@ export type ResearchPaper = {
   submittedBy?: string;
   reviewNote?: string;
   fileId?: string;
+  coverId?: string;
   aiSummary?: string;
+  revision?: PaperRevision;
 };
 
 export type Member = {

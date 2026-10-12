@@ -42,7 +42,7 @@ import {
 } from "@/app/actions/admin";
 import { ResourceForm, type ResourceFormValues } from "@/components/catalog/ResourceForm";
 import { cn, formatNumber } from "@/lib/format";
-import type { AccessType, AdminCatalog, PublicationStatus } from "@/lib/types";
+import type { AccessType, AdminCatalog, Book, PublicationStatus, ResearchPaper } from "@/lib/types";
 
 const sections = [
   { id: "analytics", label: "Analytics", icon: BarChart3 },
@@ -102,7 +102,7 @@ export function AdminDashboard({
         {section === "papers" ? <PapersTable papers={papers} fileNames={fileNames} /> : null}
         {section === "users" ? <UsersTable members={members} currentAdminId={currentAdminId} /> : null}
         {section === "review" ? (
-          <ReviewPanel books={books} papers={papers} members={members} />
+          <ReviewPanel books={books} papers={papers} members={members} fileNames={fileNames} />
         ) : null}
         {section === "upload" ? <UploadForm /> : null}
       </div>
@@ -199,6 +199,7 @@ function BooksTable({ books, fileNames }: { books: AdminCatalog["books"]; fileNa
               description: book.description,
               publicationStatus: book.publicationStatus ?? "published",
               currentFileName: book.fileId ? (fileNames[book.fileId] ?? "") : null,
+              hasCover: Boolean(book.coverId),
             };
             return (
               <CatalogAdminRow
@@ -255,6 +256,7 @@ function PapersTable({
               description: paper.abstract,
               publicationStatus: paper.publicationStatus ?? "published",
               currentFileName: paper.fileId ? (fileNames[paper.fileId] ?? "") : null,
+              hasCover: Boolean(paper.coverId),
             };
             return (
               <CatalogAdminRow
@@ -738,49 +740,47 @@ function UploadForm() {
   );
 }
 
-type PendingItem = {
+type ReviewCopy = {
+  title: string;
+  byline: string;
+  year: string;
+  subject: string;
+  access: string;
+  description: string;
+  fileHref?: string;
+  fileName?: string;
+  coverHref?: string;
+  keepsFile?: boolean;
+  keepsCover?: boolean;
+  aiSummary?: string;
+};
+
+type ReviewItem = {
   id: string;
   kind: "book" | "paper";
+  mode: "submission" | "revision";
   title: string;
   addedAt: string;
   submittedBy?: string;
-  hasFile: boolean;
-  aiSummary?: string;
+  proposed: ReviewCopy;
+  live?: ReviewCopy;
 };
 
 function ReviewPanel({
   books,
   papers,
   members,
+  fileNames,
 }: {
   books: AdminCatalog["books"];
   papers: AdminCatalog["papers"];
   members: AdminCatalog["members"];
+  fileNames: Record<string, string>;
 }) {
   const names = new Map(members.map((member) => [member._id, member.name]));
-  const pending: PendingItem[] = [
-    ...books
-      .filter((book) => book.publicationStatus === "pending")
-      .map((book) => ({
-        id: book._id,
-        kind: "book" as const,
-        title: book.title,
-        addedAt: book.addedAt,
-        submittedBy: book.submittedBy,
-        hasFile: Boolean(book.fileId),
-        aiSummary: book.aiSummary,
-      })),
-    ...papers
-      .filter((paper) => paper.publicationStatus === "pending")
-      .map((paper) => ({
-        id: paper._id,
-        kind: "paper" as const,
-        title: paper.title,
-        addedAt: paper.addedAt,
-        submittedBy: paper.submittedBy,
-        hasFile: Boolean(paper.fileId),
-        aiSummary: paper.aiSummary,
-      })),
+  const pending: ReviewItem[] = [
+    ...books.flatMap((book) => bookReviews(book, fileNames)),
+    ...papers.flatMap((paper) => paperReviews(paper, fileNames)),
   ].sort((a, b) => b.addedAt.localeCompare(a.addedAt));
 
   return (
@@ -788,100 +788,304 @@ function ReviewPanel({
       {pending.length === 0 ? (
         <p className="text-sm text-muted">No submissions are waiting for review.</p>
       ) : (
-        <table className="w-full text-left text-sm">
-          <thead className="text-xs tracking-wide text-muted uppercase">
-            <tr>
-              <th className="py-2">Title</th>
-              <th>Kind</th>
-              <th>Submitted by</th>
-              <th>Date</th>
-              <th>Decision</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pending.map((item) => (
-              <ReviewRow
-                key={`${item.kind}-${item.id}`}
-                item={item}
-                submitter={item.submittedBy ? names.get(item.submittedBy) ?? "Unknown" : "Unknown"}
-              />
-            ))}
-          </tbody>
-        </table>
+        <div className="flex flex-col gap-4">
+          {pending.map((item) => (
+            <ReviewRow
+              key={`${item.mode}-${item.kind}-${item.id}`}
+              item={item}
+              submitter={item.submittedBy ? names.get(item.submittedBy) ?? "Unknown" : "Unknown"}
+            />
+          ))}
+        </div>
       )}
     </Panel>
   );
 }
 
-function ReviewRow({ item, submitter }: { item: PendingItem; submitter: string }) {
+function bookReviews(book: Book, fileNames: Record<string, string>): ReviewItem[] {
+  const items: ReviewItem[] = [];
+  if (book.publicationStatus === "pending") {
+    items.push({
+      id: book._id,
+      kind: "book",
+      mode: "submission",
+      title: book.title,
+      addedAt: book.addedAt,
+      submittedBy: book.submittedBy,
+      proposed: {
+        title: book.title,
+        byline: book.author,
+        year: String(book.year),
+        subject: book.category,
+        access: book.access === "members" ? "Members only" : "Open access",
+        description: book.description,
+        fileHref: book.fileId ? `/api/books/${book._id}/file` : undefined,
+        fileName: book.fileId ? fileNames[book.fileId] : undefined,
+        coverHref: book.coverId ? `/api/books/${book._id}/cover` : undefined,
+        aiSummary: book.aiSummary,
+      },
+    });
+  }
+  if (book.revision?.status === "pending") {
+    const revision = book.revision;
+    items.push({
+      id: book._id,
+      kind: "book",
+      mode: "revision",
+      title: revision.title,
+      addedAt: revision.submittedAt,
+      submittedBy: book.submittedBy,
+      live: {
+        title: book.title,
+        byline: book.author,
+        year: String(book.year),
+        subject: book.category,
+        access: book.access === "members" ? "Members only" : "Open access",
+        description: book.description,
+        fileHref: book.fileId ? `/api/books/${book._id}/file` : undefined,
+        fileName: book.fileId ? fileNames[book.fileId] : undefined,
+        coverHref: book.coverId ? `/api/books/${book._id}/cover` : undefined,
+      },
+      proposed: {
+        title: revision.title,
+        byline: revision.author,
+        year: String(revision.year),
+        subject: revision.category,
+        access: revision.access === "members" ? "Members only" : "Open access",
+        description: revision.description,
+        fileHref: revision.fileId ? `/api/books/${book._id}/file?revision=1` : undefined,
+        fileName: revision.fileId ? fileNames[revision.fileId] : undefined,
+        coverHref: revision.coverId ? `/api/books/${book._id}/cover?revision=1` : undefined,
+        keepsFile: !revision.fileId,
+        keepsCover: !revision.coverId,
+        aiSummary: revision.aiSummary,
+      },
+    });
+  }
+  return items;
+}
+
+function paperReviews(paper: ResearchPaper, fileNames: Record<string, string>): ReviewItem[] {
+  const items: ReviewItem[] = [];
+  if (paper.publicationStatus === "pending") {
+    items.push({
+      id: paper._id,
+      kind: "paper",
+      mode: "submission",
+      title: paper.title,
+      addedAt: paper.addedAt,
+      submittedBy: paper.submittedBy,
+      proposed: {
+        title: paper.title,
+        byline: paper.authors.join(", "),
+        year: String(paper.year),
+        subject: paper.field,
+        access: paper.access === "members" ? "Members only" : "Open access",
+        description: paper.abstract,
+        fileHref: paper.fileId ? `/api/research/${paper._id}/file` : undefined,
+        fileName: paper.fileId ? fileNames[paper.fileId] : undefined,
+        coverHref: paper.coverId ? `/api/research/${paper._id}/cover` : undefined,
+        aiSummary: paper.aiSummary,
+      },
+    });
+  }
+  if (paper.revision?.status === "pending") {
+    const revision = paper.revision;
+    items.push({
+      id: paper._id,
+      kind: "paper",
+      mode: "revision",
+      title: revision.title,
+      addedAt: revision.submittedAt,
+      submittedBy: paper.submittedBy,
+      live: {
+        title: paper.title,
+        byline: paper.authors.join(", "),
+        year: String(paper.year),
+        subject: paper.field,
+        access: paper.access === "members" ? "Members only" : "Open access",
+        description: paper.abstract,
+        fileHref: paper.fileId ? `/api/research/${paper._id}/file` : undefined,
+        fileName: paper.fileId ? fileNames[paper.fileId] : undefined,
+        coverHref: paper.coverId ? `/api/research/${paper._id}/cover` : undefined,
+      },
+      proposed: {
+        title: revision.title,
+        byline: revision.authors.join(", "),
+        year: String(revision.year),
+        subject: revision.field,
+        access: revision.access === "members" ? "Members only" : "Open access",
+        description: revision.abstract,
+        fileHref: revision.fileId ? `/api/research/${paper._id}/file?revision=1` : undefined,
+        fileName: revision.fileId ? fileNames[revision.fileId] : undefined,
+        coverHref: revision.coverId ? `/api/research/${paper._id}/cover?revision=1` : undefined,
+        keepsFile: !revision.fileId,
+        keepsCover: !revision.coverId,
+        aiSummary: revision.aiSummary,
+      },
+    });
+  }
+  return items;
+}
+
+function splitAiSummary(summary?: string) {
+  const text = summary?.trim() ?? "";
+  if (!text) return { prose: "", subjects: [] as string[] };
+  const match = text.match(/\n?\s*Subjects:\s*(.+)$/i);
+  if (!match || match.index === undefined) return { prose: text, subjects: [] as string[] };
+  const subjects = match[1]
+    .split(/[,;]/)
+    .map((subject) => subject.replace(/\.$/, "").trim())
+    .filter(Boolean);
+  return { prose: text.slice(0, match.index).trim(), subjects };
+}
+
+function ReviewRow({ item, submitter }: { item: ReviewItem; submitter: string }) {
   const [publishState, publish, publishing] = useActionState(publishResourceAction, {});
   const [rejectState, reject, rejecting] = useActionState(rejectResourceAction, {});
   const message = publishState.error ?? rejectState.error ?? publishState.success ?? rejectState.success;
+  const summary = splitAiSummary(item.proposed.aiSummary);
+  const fileHref = item.proposed.fileHref;
 
   return (
-    <tr className="border-t border-line align-top">
-      <td className="max-w-sm py-3 font-medium text-navy">
-        {item.title}
-        {item.aiSummary ? (
-          <p className="mt-2 max-w-md text-sm font-normal leading-6 whitespace-pre-line text-muted">
-            {item.aiSummary}
-          </p>
-        ) : null}
-        {item.hasFile ? (
-          <a
-            href={item.kind === "book" ? `/api/books/${item.id}/file` : `/api/research/${item.id}/file`}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-2 block text-sm font-medium text-navy underline"
-          >
-            Preview PDF
-          </a>
-        ) : null}
-      </td>
-      <td className="py-3 capitalize">{item.kind}</td>
-      <td className="py-3">{submitter}</td>
-      <td className="py-3">{item.addedAt}</td>
-      <td className="py-3">
-        <div className="flex flex-col gap-2">
-          <form action={publish}>
-            <input type="hidden" name="id" value={item.id} />
-            <input type="hidden" name="kind" value={item.kind} />
-            <button
-              type="submit"
-              disabled={publishing || rejecting}
-              className="rounded-full bg-navy px-3 py-1.5 text-xs font-medium text-white hover:bg-navy-mid disabled:opacity-60"
-            >
-              {publishing ? "Publishing…" : "Publish"}
-            </button>
-          </form>
-          <form action={reject} className="flex flex-col gap-2">
-            <input type="hidden" name="id" value={item.id} />
-            <input type="hidden" name="kind" value={item.kind} />
-            <input
-              name="reviewNote"
-              required
-              maxLength={280}
-              placeholder="Note for the author"
-              className="w-56 rounded-lg border border-line px-2 py-1.5 text-xs font-normal text-ink outline-none"
-            />
-            <button
-              type="submit"
-              disabled={publishing || rejecting}
-              className="w-fit rounded-full border border-line px-3 py-1.5 text-xs font-medium text-navy hover:bg-paper disabled:opacity-60"
-            >
-              {rejecting ? "Rejecting…" : "Reject"}
-            </button>
-          </form>
-          {message ? <p className="max-w-56 text-xs text-navy-mid">{message}</p> : null}
+    <article className="rounded-2xl border border-line bg-paper/30 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h4 className="font-serif text-lg text-navy">{item.title}</h4>
+            <span className="rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-navy-mid capitalize ring-1 ring-line">
+              {item.kind}
+            </span>
+            {item.mode === "revision" ? (
+              <span className="rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium tracking-wide text-navy-soft uppercase ring-1 ring-line">
+                New version
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-1 text-sm text-muted">Submitted by {submitter}</p>
         </div>
-      </td>
-    </tr>
+        <p className="text-sm text-muted">{item.addedAt}</p>
+      </div>
+
+      <section className="mt-4">
+        <h5 className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">AI summary</h5>
+        {summary.prose ? (
+          <p className="mt-2 max-w-3xl text-sm leading-6 whitespace-pre-line text-muted">{summary.prose}</p>
+        ) : summary.subjects.length === 0 ? (
+          <p className="mt-2 text-sm text-muted">No AI summary yet.</p>
+        ) : null}
+        {summary.subjects.length > 0 ? (
+          <ul className="mt-3 flex flex-wrap gap-1.5">
+            {summary.subjects.map((subject) => (
+              <li
+                key={subject}
+                className="rounded-full bg-white px-2.5 py-1 text-[11px] text-navy-mid ring-1 ring-line"
+              >
+                {subject}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
+
+      <details className="mt-4">
+        <summary className="cursor-pointer text-sm font-medium text-navy">Review submission</summary>
+        <div className={item.live ? "mt-3 grid gap-4 lg:grid-cols-2" : "mt-3"}>
+          {item.live ? <ReviewCopyView label="Published now" copy={item.live} /> : null}
+          <ReviewCopyView label={item.live ? "Proposed version" : "Submission"} copy={item.proposed} />
+        </div>
+      </details>
+
+      <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          {fileHref ? (
+            <a
+              href={fileHref}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm font-medium text-navy underline"
+            >
+              Preview PDF{item.proposed.fileName ? ` (${item.proposed.fileName})` : ""}
+            </a>
+          ) : item.proposed.keepsFile ? (
+            <p className="text-sm text-muted">Keeps the current PDF.</p>
+          ) : (
+            <p className="text-sm text-muted">No PDF attached.</p>
+          )}
+        </div>
+        <div className="flex flex-col gap-2 sm:items-end">
+          <div className="flex flex-wrap items-center gap-2">
+            <form action={publish}>
+              <input type="hidden" name="id" value={item.id} />
+              <input type="hidden" name="kind" value={item.kind} />
+              <button
+                type="submit"
+                disabled={publishing || rejecting}
+                className="rounded-full bg-navy px-3 py-1.5 text-xs font-medium text-white hover:bg-navy-mid disabled:opacity-60"
+              >
+                {publishing ? "Publishing…" : "Publish"}
+              </button>
+            </form>
+            <form action={reject} className="flex flex-wrap items-center gap-2">
+              <input type="hidden" name="id" value={item.id} />
+              <input type="hidden" name="kind" value={item.kind} />
+              <input
+                name="reviewNote"
+                required
+                maxLength={280}
+                placeholder="Note for the author"
+                className="w-56 rounded-lg border border-line bg-white px-2 py-1.5 text-xs font-normal text-ink outline-none"
+              />
+              <button
+                type="submit"
+                disabled={publishing || rejecting}
+                className="rounded-full border border-line bg-white px-3 py-1.5 text-xs font-medium text-navy hover:bg-paper disabled:opacity-60"
+              >
+                {rejecting ? "Rejecting…" : "Reject"}
+              </button>
+            </form>
+          </div>
+          {message ? <p className="max-w-sm text-xs text-navy-mid">{message}</p> : null}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ReviewCopyView({ label, copy }: { label: string; copy: ReviewCopy }) {
+  return (
+    <div className="rounded-xl border border-line bg-paper/40 p-3 font-normal">
+      <p className="text-[11px] font-semibold tracking-wide text-muted uppercase">{label}</p>
+      {copy.coverHref ? (
+        <img src={copy.coverHref} alt="" className="mt-3 h-28 w-20 rounded-sm object-cover" />
+      ) : copy.keepsCover ? (
+        <p className="mt-3 text-xs text-muted">Keeps the current cover.</p>
+      ) : (
+        <p className="mt-3 text-xs text-muted">No cover image.</p>
+      )}
+      <p className="mt-3 text-navy">{copy.title}</p>
+      <p className="mt-1 text-sm text-navy-mid">{copy.byline}</p>
+      <p className="mt-2 text-xs text-muted">
+        {copy.year} · {copy.subject} · {copy.access}
+      </p>
+      <p className="mt-2 text-sm leading-6 whitespace-pre-line text-muted">{copy.description}</p>
+      {copy.fileHref ? (
+        <a href={copy.fileHref} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-medium text-navy underline">
+          Preview PDF{copy.fileName ? ` (${copy.fileName})` : ""}
+        </a>
+      ) : copy.keepsFile ? (
+        <p className="mt-2 text-xs text-muted">Keeps the current PDF.</p>
+      ) : (
+        <p className="mt-2 text-xs text-muted">No PDF attached.</p>
+      )}
+    </div>
   );
 }
 
 function statusLabel(status?: PublicationStatus) {
   if (status === "pending") return "Pending";
   if (status === "rejected") return "Rejected";
+  if (status === "withdrawn") return "Withdrawn";
   return "Published";
 }
 
