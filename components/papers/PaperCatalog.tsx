@@ -106,7 +106,7 @@ export function PaperCatalog({
         </p>
         {filtered.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-line bg-white py-16 text-center text-muted">
-            No papers match this search.
+            {papers.length === 0 ? "No papers in the catalog yet." : "No papers match this search."}
           </div>
         ) : (
           filtered.map((paper) => <PaperCard key={paper._id} paper={paper} />)

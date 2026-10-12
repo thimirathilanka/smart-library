@@ -25,11 +25,10 @@ export function Footer() {
           </div>
         </div>
         <div>
-          <p className="text-xs tracking-[0.2em] text-gold uppercase">Contact</p>
+          <p className="text-xs tracking-[0.2em] text-gold uppercase">Account</p>
           <div className="mt-3 flex flex-col gap-2 text-sm text-white/80">
-            <span>Independent digital library</span>
-            <span>Collections &amp; Metadata</span>
-            <span>hello@nextgen.library</span>
+            <Link href="/membership" className="hover:text-white">Membership</Link>
+            <Link href="/register" className="hover:text-white">Register</Link>
           </div>
         </div>
       </div>

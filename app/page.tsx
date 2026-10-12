@@ -67,73 +67,79 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <SectionHeader
-          eyebrow="Collection"
-          title="Featured books"
-          description="Hand-picked titles from the current digital collection."
-          href="/books"
-          action="Browse all books"
-        />
-        <FeaturedCarousel books={featured} />
-      </section>
-
-      <section className="bg-white/60">
-        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+      {featured.length > 0 ? (
+        <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
           <SectionHeader
-            eyebrow="Scholarship"
-            title="Latest research publications"
-            description="Recently indexed journal articles and conference papers."
-            href="/research"
-            action="Browse all papers"
+            eyebrow="Collection"
+            title="Featured books"
+            description="Hand-picked titles from the current digital collection."
+            href="/books"
+            action="Browse all books"
           />
-          <div className="grid gap-4 lg:grid-cols-2">
-            {papers.map((paper) => (
-              <PaperCard key={paper._id} paper={paper} />
-            ))}
-          </div>
-        </div>
-      </section>
+          <FeaturedCarousel books={featured} />
+        </section>
+      ) : null}
 
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <SectionHeader
-          eyebrow="New arrivals"
-          title="Recently added resources"
-          description="The newest books and papers added to the digital catalog."
-        />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {recent.map((item) =>
-            item.book ? (
-              <Link
-                key={item.book._id}
-                href={`/books/${item.book._id}`}
-                className="flex gap-4 rounded-2xl border border-line bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <BookCover book={item.book} size="sm" className="w-16 shrink-0" />
-                <div>
-                  <p className="text-[11px] tracking-wide text-navy-soft uppercase">Book</p>
-                  <h3 className="font-serif text-lg text-navy">{item.book.title}</h3>
-                  <p className="mt-1 text-sm text-muted">{item.book.author}</p>
-                  <div className="mt-2">
-                    <AccessBadge access={item.book.access} />
+      {papers.length > 0 ? (
+        <section className="bg-white/60">
+          <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+            <SectionHeader
+              eyebrow="Scholarship"
+              title="Latest research publications"
+              description="Recently indexed journal articles and conference papers."
+              href="/research"
+              action="Browse all papers"
+            />
+            <div className="grid gap-4 lg:grid-cols-2">
+              {papers.map((paper) => (
+                <PaperCard key={paper._id} paper={paper} />
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {recent.length > 0 ? (
+        <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+          <SectionHeader
+            eyebrow="New arrivals"
+            title="Recently added resources"
+            description="The newest books and papers added to the digital catalog."
+          />
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {recent.map((item) =>
+              item.book ? (
+                <Link
+                  key={item.book._id}
+                  href={`/books/${item.book._id}`}
+                  className="flex gap-4 rounded-2xl border border-line bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <BookCover book={item.book} size="sm" className="w-16 shrink-0" />
+                  <div>
+                    <p className="text-[11px] tracking-wide text-navy-soft uppercase">Book</p>
+                    <h3 className="font-serif text-lg text-navy">{item.book.title}</h3>
+                    <p className="mt-1 text-sm text-muted">{item.book.author}</p>
+                    <div className="mt-2">
+                      <AccessBadge access={item.book.access} />
+                    </div>
                   </div>
-                </div>
-              </Link>
-            ) : item.paper ? (
-              <Link
-                key={item.paper._id}
-                href={`/research/${item.paper._id}`}
-                className="rounded-2xl border border-line bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <p className="text-[11px] tracking-wide text-navy-soft uppercase">Paper</p>
-                <h3 className="mt-1 line-clamp-2 font-serif text-lg text-navy">{item.paper.title}</h3>
-                <p className="mt-2 text-sm text-muted">{item.paper.authors.join(", ")}</p>
-                <p className="mt-2 text-xs text-navy-mid">{item.paper.venue}</p>
-              </Link>
-            ) : null,
-          )}
-        </div>
-      </section>
+                </Link>
+              ) : item.paper ? (
+                <Link
+                  key={item.paper._id}
+                  href={`/research/${item.paper._id}`}
+                  className="rounded-2xl border border-line bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <p className="text-[11px] tracking-wide text-navy-soft uppercase">Paper</p>
+                  <h3 className="mt-1 line-clamp-2 font-serif text-lg text-navy">{item.paper.title}</h3>
+                  <p className="mt-2 text-sm text-muted">{item.paper.authors.join(", ")}</p>
+                  <p className="mt-2 text-xs text-navy-mid">{item.paper.venue}</p>
+                </Link>
+              ) : null,
+            )}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

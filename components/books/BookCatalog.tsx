@@ -135,7 +135,7 @@ export function BookCatalog({
         </div>
         {filtered.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-line bg-white py-16 text-center text-muted">
-            No books match these filters.
+            {books.length === 0 ? "No books in the catalog yet." : "No books match these filters."}
           </div>
         ) : layout === "grid" ? (
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
