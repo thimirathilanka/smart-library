@@ -15,6 +15,24 @@ const sizes = {
 };
 
 export function BookCover({ book, className, size = "md" }: BookCoverProps) {
+  if (book.coverId) {
+    return (
+      <div
+        className={cn(
+          "relative overflow-hidden rounded-sm shadow-[0_18px_40px_-18px_rgba(11,31,58,0.55)]",
+          sizes[size],
+          className,
+        )}
+      >
+        <img
+          src={`/api/books/${book._id}/cover`}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(

@@ -11,9 +11,9 @@ import {
   setMemberAuthor,
   setMemberStatus,
 } from "@/lib/data/members";
-import { savePdfUpload, saveReplacementPdf } from "@/lib/data/files";
+import { readCatalogUploads } from "@/lib/data/files";
 import { createPaper, deletePaper, publishPaper, rejectPaper, updatePaper } from "@/lib/data/papers";
-import { deleteGridFsFile } from "@/lib/db";
+import { discardGridFsFiles } from "@/lib/db";
 import type { PublicationStatus, ResourceKind } from "@/lib/types";
 
 export type CatalogState = {
@@ -59,7 +59,9 @@ function resourceIdentity(formData: FormData): { id: string; kind: ResourceKind 
 
 function publicationStatusOf(value: FormDataEntryValue | null): PublicationStatus | null {
   const status = String(value ?? "");
-  return status === "pending" || status === "published" || status === "rejected" ? status : null;
+  return status === "pending" || status === "published" || status === "rejected" || status === "withdrawn"
+    ? status
+    : null;
 }
 
 export async function createResourceAction(_prev: CatalogState, formData: FormData): Promise<CatalogState> {
@@ -72,35 +74,28 @@ export async function createResourceAction(_prev: CatalogState, formData: FormDa
   });
   if (!draft.ok) return { error: draft.error };
 
+  const upload = await readCatalogUploads(formData, "optional");
+  if (!upload.ok) return { error: upload.error };
+  const stored = {
+    ...(upload.fileId ? { fileId: upload.fileId } : {}),
+    ...(upload.coverId ? { coverId: upload.coverId } : {}),
+  };
+
   if (draft.kind === "paper") {
-    const fileValue = formData.get("file");
-    let fileId: string | undefined;
-    if (fileValue instanceof File && fileValue.size > 0) {
-      const upload = await savePdfUpload(fileValue);
-      if (!upload.ok) return { error: upload.error };
-      fileId = upload.fileId;
-    }
     try {
-      await createPaper({ ...draft.paper, ...(fileId ? { fileId } : {}) });
+      await createPaper({ ...draft.paper, ...stored });
     } catch {
-      if (fileId) await deleteGridFsFile(fileId);
+      await discardGridFsFiles([upload.fileId, upload.coverId]);
       return { error: "The paper could not be added. Please try again." };
     }
     revalidatePublic();
     return { success: "Paper added to the catalog." };
   }
 
-  const fileValue = formData.get("file");
-  let fileId: string | undefined;
-  if (fileValue instanceof File && fileValue.size > 0) {
-    const upload = await savePdfUpload(fileValue);
-    if (!upload.ok) return { error: upload.error };
-    fileId = upload.fileId;
-  }
   try {
-    await createBook({ ...draft.book, ...(fileId ? { fileId } : {}) });
+    await createBook({ ...draft.book, ...stored });
   } catch {
-    if (fileId) await deleteGridFsFile(fileId);
+    await discardGridFsFiles([upload.fileId, upload.coverId]);
     return { error: "The book could not be added. Please try again." };
   }
   revalidatePublic();
@@ -155,19 +150,19 @@ export async function updateResourceAction(_prev: CatalogState, formData: FormDa
     return { error: parsed.ok ? "That resource could not be updated." : parsed.error };
   }
 
-  const upload = await saveReplacementPdf(formData.get("file"));
+  const upload = await readCatalogUploads(formData, "optional");
   if (!upload.ok) return { error: upload.error };
 
   try {
     const updated = parsed.kind === "book"
-      ? await updateBook(resource.id, parsed.edits, status, upload.fileId)
-      : await updatePaper(resource.id, parsed.edits, status, upload.fileId);
+      ? await updateBook(resource.id, parsed.edits, status, upload.fileId, upload.coverId)
+      : await updatePaper(resource.id, parsed.edits, status, upload.fileId, upload.coverId);
     if (!updated) {
-      if (upload.fileId) await deleteGridFsFile(upload.fileId);
+      await discardGridFsFiles([upload.fileId, upload.coverId]);
       return { error: "That resource could not be found." };
     }
   } catch {
-    if (upload.fileId) await deleteGridFsFile(upload.fileId);
+    await discardGridFsFiles([upload.fileId, upload.coverId]);
     return { error: "That resource could not be updated." };
   }
 

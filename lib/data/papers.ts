@@ -1,10 +1,10 @@
 import "server-only";
 
-import { collections, deleteGridFsFile } from "@/lib/db";
+import { collections, deleteGridFsFile, discardGridFsFiles } from "@/lib/db";
 import { toPlain } from "@/lib/data/serialize";
 import { withPublished } from "@/lib/data/publication";
 import type { PaperEdits } from "@/lib/catalog-form";
-import type { ResearchPaper } from "@/lib/types";
+import type { PaperRevision, ResearchPaper } from "@/lib/types";
 
 export async function listPapers() {
   const { papers } = await collections();
@@ -69,16 +69,26 @@ export async function updatePaper(
   edits: PaperEdits,
   publicationStatus: NonNullable<ResearchPaper["publicationStatus"]>,
   fileId?: string,
+  coverId?: string,
 ) {
   const { papers } = await collections();
   const existing = await papers.findOne({ _id: id });
   if (!existing) return false;
   const result = await papers.updateOne(
     { _id: id },
-    { $set: { ...edits, publicationStatus, ...(fileId ? { fileId } : {}) }, $unset: { reviewNote: "" } },
+    {
+      $set: {
+        ...edits,
+        publicationStatus,
+        ...(fileId ? { fileId } : {}),
+        ...(coverId ? { coverId } : {}),
+      },
+      $unset: { reviewNote: "" },
+    },
   );
   if (result.matchedCount === 0) return false;
   await removeReplacedFile(existing.fileId, fileId);
+  await removeReplacedFile(existing.coverId, coverId);
   return true;
 }
 
@@ -86,43 +96,186 @@ export async function deletePaper(id: string) {
   const { papers } = await collections();
   const paper = await papers.findOne({ _id: id });
   if (!paper) return false;
-  if (paper.fileId) await deleteGridFsFile(paper.fileId);
   const result = await papers.deleteOne({ _id: id });
-  return result.deletedCount > 0;
+  if (result.deletedCount === 0) return false;
+  await discardGridFsFiles([paper.fileId, paper.coverId, paper.revision?.fileId, paper.revision?.coverId]);
+  return true;
 }
 
 export async function publishPaper(id: string) {
   const { papers } = await collections();
-  const result = await papers.updateOne(
-    { _id: id, publicationStatus: "pending" },
-    { $set: { publicationStatus: "published" }, $unset: { reviewNote: "" } },
-  );
-  return result.matchedCount > 0;
+  const paper = await papers.findOne({ _id: id });
+  if (!paper) return false;
+  if (paper.publicationStatus === "pending") {
+    const result = await papers.updateOne(
+      { _id: id, publicationStatus: "pending" },
+      { $set: { publicationStatus: "published" }, $unset: { reviewNote: "" } },
+    );
+    return result.matchedCount > 0;
+  }
+  if (paper.revision?.status !== "pending") return false;
+  return applyPaperRevision(paper);
 }
 
 export async function rejectPaper(id: string, reviewNote: string) {
   const { papers } = await collections();
+  const paper = await papers.findOne({ _id: id });
+  if (!paper) return false;
+  if (paper.publicationStatus === "pending") {
+    const result = await papers.updateOne(
+      { _id: id, publicationStatus: "pending" },
+      { $set: { publicationStatus: "rejected", reviewNote } },
+    );
+    return result.matchedCount > 0;
+  }
+  if (paper.revision?.status !== "pending") return false;
   const result = await papers.updateOne(
-    { _id: id, publicationStatus: "pending" },
-    { $set: { publicationStatus: "rejected", reviewNote } },
+    { _id: id, "revision.status": "pending" },
+    { $set: { "revision.status": "rejected", "revision.reviewNote": reviewNote } },
   );
   return result.matchedCount > 0;
 }
 
-export async function resubmitPaper(id: string, submittedBy: string, edits: PaperEdits, fileId?: string) {
+export async function resubmitPaper(
+  id: string,
+  submittedBy: string,
+  edits: PaperEdits,
+  fileId?: string,
+  coverId?: string,
+) {
   const { papers } = await collections();
-  const existing = await papers.findOne({ _id: id, submittedBy, publicationStatus: "rejected" });
+  const existing = await papers.findOne({
+    _id: id,
+    submittedBy,
+    publicationStatus: { $in: ["pending", "rejected", "withdrawn"] },
+  });
   if (!existing) return false;
   const result = await papers.updateOne(
-    { _id: id, submittedBy, publicationStatus: "rejected" },
+    { _id: id, submittedBy, publicationStatus: existing.publicationStatus },
     {
-      $set: { ...edits, publicationStatus: "pending", ...(fileId ? { fileId } : {}) },
+      $set: {
+        ...edits,
+        publicationStatus: "pending",
+        ...(fileId ? { fileId } : {}),
+        ...(coverId ? { coverId } : {}),
+      },
       $unset: { reviewNote: "", aiSummary: "" },
     },
   );
   if (result.matchedCount === 0) return false;
   await removeReplacedFile(existing.fileId, fileId);
+  await removeReplacedFile(existing.coverId, coverId);
   return true;
+}
+
+export async function withdrawPaper(id: string, submittedBy: string) {
+  const { papers } = await collections();
+  const result = await papers.updateOne(
+    { _id: id, submittedBy, publicationStatus: "pending" },
+    { $set: { publicationStatus: "withdrawn" } },
+  );
+  return result.matchedCount > 0;
+}
+
+export async function deleteAuthorPaper(id: string, submittedBy: string) {
+  const { papers } = await collections();
+  const paper = await papers.findOne({
+    _id: id,
+    submittedBy,
+    publicationStatus: { $in: ["pending", "rejected", "withdrawn"] },
+  });
+  if (!paper) return false;
+  const result = await papers.deleteOne({ _id: id, submittedBy, publicationStatus: paper.publicationStatus });
+  if (result.deletedCount === 0) return false;
+  await discardGridFsFiles([paper.fileId, paper.coverId]);
+  return true;
+}
+
+export async function submitPaperRevision(
+  id: string,
+  submittedBy: string,
+  edits: PaperEdits,
+  fileId?: string,
+  coverId?: string,
+) {
+  const { papers } = await collections();
+  const existing = await papers.findOne({ _id: id, submittedBy });
+  if (!existing || (existing.publicationStatus && existing.publicationStatus !== "published")) return false;
+  const previous = existing.revision;
+  const nextFileId = fileId ?? previous?.fileId;
+  const nextCoverId = coverId ?? previous?.coverId;
+  const revision: PaperRevision = {
+    status: "pending",
+    submittedAt: new Date().toISOString().slice(0, 10),
+    ...edits,
+    ...(nextFileId ? { fileId: nextFileId } : {}),
+    ...(nextCoverId ? { coverId: nextCoverId } : {}),
+  };
+  const result = await papers.updateOne({ _id: id, submittedBy }, { $set: { revision } });
+  if (result.matchedCount === 0) return false;
+  if (fileId) await removeReplacedFile(distinctFrom(previous?.fileId, existing.fileId), fileId);
+  if (coverId) await removeReplacedFile(distinctFrom(previous?.coverId, existing.coverId), coverId);
+  return true;
+}
+
+export async function cancelPaperRevision(id: string, submittedBy: string) {
+  const { papers } = await collections();
+  const existing = await papers.findOne({ _id: id, submittedBy });
+  if (!existing?.revision) return false;
+  const result = await papers.updateOne({ _id: id, submittedBy }, { $unset: { revision: "" } });
+  if (result.matchedCount === 0) return false;
+  await discardGridFsFiles([
+    distinctFrom(existing.revision.fileId, existing.fileId),
+    distinctFrom(existing.revision.coverId, existing.coverId),
+  ]);
+  return true;
+}
+
+export async function setPaperRevisionSummary(id: string, aiSummary: string) {
+  const { papers } = await collections();
+  await papers.updateOne({ _id: id, "revision.status": "pending" }, { $set: { "revision.aiSummary": aiSummary } });
+}
+
+async function applyPaperRevision(paper: ResearchPaper) {
+  const revision = paper.revision;
+  if (!revision) return false;
+  const { papers } = await collections();
+  const nextFileId = revision.fileId ?? paper.fileId;
+  const nextCoverId = revision.coverId ?? paper.coverId;
+  const result = await papers.updateOne(
+    { _id: paper._id, "revision.status": "pending" },
+    {
+      $set: {
+        title: revision.title,
+        authors: revision.authors,
+        abstract: revision.abstract,
+        field: revision.field,
+        year: revision.year,
+        doi: revision.doi,
+        access: revision.access,
+        publicationStatus: "published",
+        ...(nextFileId ? { fileId: nextFileId } : {}),
+        ...(nextCoverId ? { coverId: nextCoverId } : {}),
+        ...(revision.aiSummary ? { aiSummary: revision.aiSummary } : {}),
+      },
+      $unset: {
+        revision: "",
+        reviewNote: "",
+        ...(!nextFileId ? { fileId: "" } : {}),
+        ...(!nextCoverId ? { coverId: "" } : {}),
+        ...(!revision.aiSummary ? { aiSummary: "" } : {}),
+      },
+    },
+  );
+  if (result.matchedCount === 0) return false;
+  if (revision.fileId) await removeReplacedFile(paper.fileId, revision.fileId);
+  if (revision.coverId) await removeReplacedFile(paper.coverId, revision.coverId);
+  return true;
+}
+
+function distinctFrom(candidate: string | undefined, liveId: string | undefined) {
+  if (!candidate || candidate === liveId) return undefined;
+  return candidate;
 }
 
 async function removeReplacedFile(previousId?: string, nextId?: string) {

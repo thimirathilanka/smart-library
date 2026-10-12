@@ -10,8 +10,8 @@ export const metadata = {
 export default async function AdminPage() {
   const [catalog, session] = await Promise.all([getAdminCatalog(), auth()]);
   const storedNames = await gridFsFilenames([
-    ...catalog.books.map((book) => book.fileId),
-    ...catalog.papers.map((paper) => paper.fileId),
+    ...catalog.books.flatMap((book) => [book.fileId, book.revision?.fileId]),
+    ...catalog.papers.flatMap((paper) => [paper.fileId, paper.revision?.fileId]),
   ]);
   const fileNames = Object.fromEntries(storedNames);
 

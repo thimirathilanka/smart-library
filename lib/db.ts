@@ -43,10 +43,10 @@ export async function deleteGridFsFile(fileId?: string) {
   return true;
 }
 
-export async function uploadGridFsFile(file: File) {
+export async function uploadGridFsFile(file: File, contentType = "application/pdf") {
   const bucket = new GridFSBucket(await getDb());
   const upload = bucket.openUploadStream(file.name, {
-    metadata: { contentType: "application/pdf" },
+    metadata: { contentType },
   });
   try {
     const { pipeline } = await import("node:stream/promises");
@@ -73,11 +73,32 @@ export async function gridFsFilenames(fileIds: Array<string | undefined>) {
 }
 
 export async function openGridFsDownload(fileId: string) {
+  const file = await openGridFsFile(fileId);
+  return file?.stream ?? null;
+}
+
+export async function openGridFsFile(fileId: string) {
   if (!ObjectId.isValid(fileId)) return null;
   const bucket = new GridFSBucket(await getDb());
   const id = new ObjectId(fileId);
-  if (!(await bucket.find({ _id: id }).hasNext())) return null;
-  return bucket.openDownloadStream(id);
+  const file = await bucket.find({ _id: id }).next();
+  if (!file) return null;
+  const contentType =
+    typeof file.metadata?.contentType === "string" ? file.metadata.contentType : "application/octet-stream";
+  return { stream: bucket.openDownloadStream(id), contentType, filename: file.filename };
+}
+
+export async function discardGridFsFiles(ids: Array<string | undefined>) {
+  const unique = [...new Set(ids.filter((id): id is string => Boolean(id)))];
+  await Promise.all(
+    unique.map(async (id) => {
+      try {
+        await deleteGridFsFile(id);
+      } catch {
+        // A replaced file can already be gone.
+      }
+    }),
+  );
 }
 
 export async function collections() {

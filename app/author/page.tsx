@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import { AuthorStudio, type AuthorSubmission } from "@/components/author/AuthorStudio";
+import { AuthorStudio, type AuthorRevision, type AuthorSubmission } from "@/components/author/AuthorStudio";
 import { auth } from "@/auth";
 import { listBooksByAuthor } from "@/lib/data/books";
 import { listPapersByAuthor } from "@/lib/data/papers";
-import type { Book, ResearchPaper } from "@/lib/types";
+import type { Book, BookRevision, PaperRevision, ResearchPaper } from "@/lib/types";
 
 export const metadata = {
   title: "Author studio",
@@ -24,6 +24,25 @@ function fromBook(book: Book): AuthorSubmission {
     access: book.access,
     description: book.description,
     hasFile: Boolean(book.fileId),
+    hasCover: Boolean(book.coverId),
+    revision: book.revision ? bookRevision(book.revision) : undefined,
+  };
+}
+
+function bookRevision(revision: BookRevision): AuthorRevision {
+  return {
+    status: revision.status,
+    submittedAt: revision.submittedAt,
+    reviewNote: revision.reviewNote,
+    hasFile: Boolean(revision.fileId),
+    hasCover: Boolean(revision.coverId),
+    title: revision.title,
+    author: revision.author,
+    isbn: revision.isbn,
+    category: revision.category,
+    year: revision.year,
+    access: revision.access,
+    description: revision.description,
   };
 }
 
@@ -42,6 +61,25 @@ function fromPaper(paper: ResearchPaper): AuthorSubmission {
     access: paper.access,
     description: paper.abstract,
     hasFile: Boolean(paper.fileId),
+    hasCover: Boolean(paper.coverId),
+    revision: paper.revision ? paperRevision(paper.revision) : undefined,
+  };
+}
+
+function paperRevision(revision: PaperRevision): AuthorRevision {
+  return {
+    status: revision.status,
+    submittedAt: revision.submittedAt,
+    reviewNote: revision.reviewNote,
+    hasFile: Boolean(revision.fileId),
+    hasCover: Boolean(revision.coverId),
+    title: revision.title,
+    authors: revision.authors.join(", "),
+    doi: revision.doi,
+    field: revision.field,
+    year: revision.year,
+    access: revision.access,
+    description: revision.abstract,
   };
 }
 
@@ -62,7 +100,7 @@ export default async function AuthorPage() {
       <p className="text-xs font-semibold tracking-[0.2em] text-navy-soft uppercase">Author studio</p>
       <h1 className="mt-2 font-serif text-4xl text-navy">Author studio</h1>
       <p className="mt-2 max-w-2xl text-muted">
-        Upload a book or paper, then wait for an admin to publish it. If a submission is rejected, you can edit it and send it back.
+        Upload a book or paper, then wait for an admin to publish it. You can edit unpublished work, withdraw it, or send a new version of a published title without taking it offline.
       </p>
       <div className="mt-8">
         <AuthorStudio submissions={submissions} />
