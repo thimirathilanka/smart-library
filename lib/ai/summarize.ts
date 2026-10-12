@@ -18,6 +18,7 @@ export async function summarizeForCatalog(input: {
   kind: ResourceKind;
   title: string;
   source: string;
+  excerpt?: boolean;
 }): Promise<string | null> {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   const source = input.source.trim();
@@ -37,7 +38,7 @@ export async function summarizeForCatalog(input: {
         },
         signal: controller.signal,
         body: JSON.stringify({
-          contents: [{ parts: [{ text: promptFor(input.kind, title, source) }] }],
+          contents: [{ parts: [{ text: promptFor(input.kind, title, source, Boolean(input.excerpt)) }] }],
           generationConfig: {
             temperature: 0.2,
             maxOutputTokens: 400,
@@ -56,20 +57,18 @@ export async function summarizeForCatalog(input: {
   }
 }
 
-function promptFor(kind: ResourceKind, title: string, source: string) {
-  const label = kind === "book" ? "book description" : "paper abstract";
-  return [
+function promptFor(kind: ResourceKind, title: string, source: string, excerpt: boolean) {
+  const label = excerpt ? "Excerpt" : kind === "book" ? "Book description" : "Paper abstract";
+  const lines = [
     "You write catalog notes for a library.",
     `Summarize this ${kind} in 2 to 4 plain sentences a reader can scan.`,
     'Then add one line that starts with "Subjects:" and lists 4 to 8 short alternate phrases a reader might type when searching for this work.',
     "Prefer plainer wording than the source when a simpler phrase exists.",
     "Use only what the source supports. Do not add a title line or markdown.",
-    "",
-    `Title: ${title}`,
-    "",
-    `${label}:`,
-    source,
-  ].join("\n");
+  ];
+  if (excerpt) lines.push("The source is an excerpt from the PDF, not the whole work.");
+  lines.push("", `Title: ${title}`, "", `${label}:`, source);
+  return lines.join("\n");
 }
 
 function summaryText(payload: GeminiResponse) {

@@ -2,12 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
+import { extractPdfExcerpt } from "@/lib/ai/pdf-excerpt";
 import { summarizeForCatalog } from "@/lib/ai/summarize";
 import { draftFromForm, editsFromForm } from "@/lib/catalog-form";
 import {
   cancelBookRevision,
   createBook,
   deleteAuthorBook,
+  getBookForStaff,
   resubmitBook,
   setBookRevisionSummary,
   setBookSummary,
@@ -20,6 +22,7 @@ import {
   cancelPaperRevision,
   createPaper,
   deleteAuthorPaper,
+  getPaperForStaff,
   resubmitPaper,
   setPaperRevisionSummary,
   setPaperSummary,
@@ -222,9 +225,9 @@ export async function deleteAuthorResourceAction(_prev: CatalogState, formData: 
   return { success: "Submission deleted." };
 }
 
-async function storeSummary(kind: ResourceKind, id: string, title: string, source: string) {
+async function storeSummary(kind: ResourceKind, id: string, title: string, fallback: string) {
   try {
-    const summary = await summarizeForCatalog({ kind, title, source });
+    const summary = await summarizeSavedPdf(kind, id, title, fallback, false);
     if (!summary) return;
     if (kind === "book") await setBookSummary(id, summary);
     else await setPaperSummary(id, summary);
@@ -233,13 +236,41 @@ async function storeSummary(kind: ResourceKind, id: string, title: string, sourc
   }
 }
 
-async function storeRevisionSummary(kind: ResourceKind, id: string, title: string, source: string) {
+async function storeRevisionSummary(kind: ResourceKind, id: string, title: string, fallback: string) {
   try {
-    const summary = await summarizeForCatalog({ kind, title, source });
+    const summary = await summarizeSavedPdf(kind, id, title, fallback, true);
     if (!summary) return;
     if (kind === "book") await setBookRevisionSummary(id, summary);
     else await setPaperRevisionSummary(id, summary);
   } catch {
     // The version is already waiting. A missing summary does not undo it.
   }
+}
+
+async function summarizeSavedPdf(
+  kind: ResourceKind,
+  id: string,
+  title: string,
+  fallback: string,
+  revision: boolean,
+) {
+  const fileId = await savedPdfId(kind, id, revision);
+  const excerpt = await extractPdfExcerpt(fileId);
+  return summarizeForCatalog({
+    kind,
+    title,
+    source: excerpt ?? fallback,
+    excerpt: Boolean(excerpt),
+  });
+}
+
+async function savedPdfId(kind: ResourceKind, id: string, revision: boolean) {
+  if (kind === "book") {
+    const book = await getBookForStaff(id);
+    if (!book) return undefined;
+    return revision ? book.revision?.fileId || book.fileId : book.fileId;
+  }
+  const paper = await getPaperForStaff(id);
+  if (!paper) return undefined;
+  return revision ? paper.revision?.fileId || paper.fileId : paper.fileId;
 }
