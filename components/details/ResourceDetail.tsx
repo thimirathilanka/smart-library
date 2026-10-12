@@ -78,6 +78,12 @@ export function BookDetail({
             <RatingStars rating={book.rating} count={book.ratingsCount} />
           </div>
           <p className="mt-6 max-w-3xl text-base leading-8 text-muted">{book.description}</p>
+          {book.aiSummary ? (
+            <section className="mt-6 max-w-3xl">
+              <h2 className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">AI summary</h2>
+              <p className="mt-2 text-base leading-8 whitespace-pre-line text-muted">{book.aiSummary}</p>
+            </section>
+          ) : null}
           <dl className="mt-8 grid gap-4 rounded-2xl border border-line bg-white p-5 sm:grid-cols-2">
             {book.isbn ? <Meta icon={<Hash className="size-4" />} label="ISBN" value={book.isbn} /> : null}
             <Meta icon={<Quote className="size-4" />} label="Publisher" value={book.publisher} />
@@ -194,6 +200,12 @@ export function PaperDetail({
             </h2>
             <p className="mt-2 text-sm leading-7 text-muted">{paper.abstract}</p>
           </section>
+          {paper.aiSummary ? (
+            <section className="mt-6">
+              <h2 className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">AI summary</h2>
+              <p className="mt-2 text-sm leading-7 whitespace-pre-line text-muted">{paper.aiSummary}</p>
+            </section>
+          ) : null}
           <div className="mt-4 flex flex-wrap gap-1.5">
             {paper.keywords.map((keyword) => (
               <span key={keyword} className="rounded-full bg-paper px-2.5 py-1 text-[11px] text-navy-mid ring-1 ring-line">

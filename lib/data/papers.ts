@@ -115,7 +115,10 @@ export async function resubmitPaper(id: string, submittedBy: string, edits: Pape
   if (!existing) return false;
   const result = await papers.updateOne(
     { _id: id, submittedBy, publicationStatus: "rejected" },
-    { $set: { ...edits, publicationStatus: "pending", ...(fileId ? { fileId } : {}) }, $unset: { reviewNote: "" } },
+    {
+      $set: { ...edits, publicationStatus: "pending", ...(fileId ? { fileId } : {}) },
+      $unset: { reviewNote: "", aiSummary: "" },
+    },
   );
   if (result.matchedCount === 0) return false;
   await removeReplacedFile(existing.fileId, fileId);
@@ -129,6 +132,11 @@ async function removeReplacedFile(previousId?: string, nextId?: string) {
   } catch {
     // The resource already points at the replacement.
   }
+}
+
+export async function setPaperSummary(id: string, aiSummary: string) {
+  const { papers } = await collections();
+  await papers.updateOne({ _id: id }, { $set: { aiSummary } });
 }
 
 export async function incrementPaperReads(id: string) {

@@ -18,6 +18,7 @@ cp .env.example .env.local
 - `AUTH_SECRET` — a long random string (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`)
 - `AUTH_URL` — `http://localhost:3000`
 - `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` — the first admin. The password must be at least 8 characters. This account is an active member. If the email already exists, it is left unchanged.
+- `GEMINI_API_KEY` — optional. A free key from [Google AI Studio](https://aistudio.google.com/apikey). When an author submits a book or paper for review, the app asks Gemini to write a short summary and a few alternate subject phrases. Catalog search matches that text after an admin publishes the title. If the key is missing, or the request fails, the submission still goes to review with no summary.
 
 4. Install, set up the database, and run:
 

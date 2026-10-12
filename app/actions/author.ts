@@ -2,12 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
+import { summarizeForCatalog } from "@/lib/ai/summarize";
 import { draftFromForm, editsFromForm } from "@/lib/catalog-form";
-import { createBook, resubmitBook } from "@/lib/data/books";
+import { createBook, resubmitBook, setBookSummary } from "@/lib/data/books";
 import { savePdfUpload, saveReplacementPdf } from "@/lib/data/files";
 import { getMemberById } from "@/lib/data/members";
-import { createPaper, resubmitPaper } from "@/lib/data/papers";
+import { createPaper, resubmitPaper, setPaperSummary } from "@/lib/data/papers";
 import { deleteGridFsFile } from "@/lib/db";
+import type { ResourceKind } from "@/lib/types";
 
 export type CatalogState = {
   error?: string;
@@ -41,6 +43,7 @@ export async function submitResourceAction(_prev: CatalogState, formData: FormDa
       await deleteGridFsFile(upload.fileId);
       return { error: "The paper could not be submitted. Please try again." };
     }
+    await storeSummary("paper", draft.paper._id, draft.paper.title, draft.paper.abstract);
   } else {
     const upload = await savePdfUpload(formData.get("file"));
     if (!upload.ok) return { error: upload.error };
@@ -50,6 +53,7 @@ export async function submitResourceAction(_prev: CatalogState, formData: FormDa
       await deleteGridFsFile(upload.fileId);
       return { error: "The book could not be submitted. Please try again." };
     }
+    await storeSummary("book", draft.book._id, draft.book.title, draft.book.description);
   }
 
   revalidatePath("/author");
@@ -84,7 +88,25 @@ export async function resubmitResourceAction(_prev: CatalogState, formData: Form
     return { error: "Only a rejected submission can be edited and sent back for review." };
   }
 
+  await storeSummary(
+    parsed.kind,
+    id,
+    parsed.edits.title,
+    parsed.kind === "book" ? parsed.edits.description : parsed.edits.abstract,
+  );
+
   revalidatePath("/author");
   revalidatePath("/admin");
   return { success: "Sent back for review." };
+}
+
+async function storeSummary(kind: ResourceKind, id: string, title: string, source: string) {
+  try {
+    const summary = await summarizeForCatalog({ kind, title, source });
+    if (!summary) return;
+    if (kind === "book") await setBookSummary(id, summary);
+    else await setPaperSummary(id, summary);
+  } catch {
+    // The submission is already saved. A missing summary does not undo it.
+  }
 }

@@ -38,7 +38,7 @@ export function PaperCatalog({
   );
 
   const filtered = papers.filter((paper) => {
-    const haystack = `${paper.title} ${paper.authors.join(" ")} ${paper.keywords.join(" ")} ${paper.abstract}`.toLowerCase();
+    const haystack = `${paper.title} ${paper.authors.join(" ")} ${paper.keywords.join(" ")} ${paper.abstract} ${paper.aiSummary ?? ""}`.toLowerCase();
     const matchesQuery = !query.trim() || haystack.includes(query.trim().toLowerCase());
     return (
       matchesQuery &&

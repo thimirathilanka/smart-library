@@ -745,6 +745,7 @@ type PendingItem = {
   addedAt: string;
   submittedBy?: string;
   hasFile: boolean;
+  aiSummary?: string;
 };
 
 function ReviewPanel({
@@ -767,6 +768,7 @@ function ReviewPanel({
         addedAt: book.addedAt,
         submittedBy: book.submittedBy,
         hasFile: Boolean(book.fileId),
+        aiSummary: book.aiSummary,
       })),
     ...papers
       .filter((paper) => paper.publicationStatus === "pending")
@@ -777,6 +779,7 @@ function ReviewPanel({
         addedAt: paper.addedAt,
         submittedBy: paper.submittedBy,
         hasFile: Boolean(paper.fileId),
+        aiSummary: paper.aiSummary,
       })),
   ].sort((a, b) => b.addedAt.localeCompare(a.addedAt));
 
@@ -819,6 +822,11 @@ function ReviewRow({ item, submitter }: { item: PendingItem; submitter: string }
     <tr className="border-t border-line align-top">
       <td className="max-w-sm py-3 font-medium text-navy">
         {item.title}
+        {item.aiSummary ? (
+          <p className="mt-2 max-w-md text-sm font-normal leading-6 whitespace-pre-line text-muted">
+            {item.aiSummary}
+          </p>
+        ) : null}
         {item.hasFile ? (
           <a
             href={item.kind === "book" ? `/api/books/${item.id}/file` : `/api/research/${item.id}/file`}

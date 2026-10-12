@@ -32,6 +32,7 @@ export type Book = {
   submittedBy?: string;
   reviewNote?: string;
   fileId?: string;
+  aiSummary?: string;
 };
 
 export type ResearchPaper = {
@@ -55,6 +56,7 @@ export type ResearchPaper = {
   submittedBy?: string;
   reviewNote?: string;
   fileId?: string;
+  aiSummary?: string;
 };
 
 export type Member = {

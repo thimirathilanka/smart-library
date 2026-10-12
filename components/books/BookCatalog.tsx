@@ -37,7 +37,7 @@ export function BookCatalog({
   );
 
   const filtered = books.filter((book) => {
-    const haystack = `${book.title} ${book.subtitle ?? ""} ${book.author} ${book.category}`.toLowerCase();
+    const haystack = `${book.title} ${book.subtitle ?? ""} ${book.author} ${book.category} ${book.aiSummary ?? ""}`.toLowerCase();
     const matchesQuery = !query.trim() || haystack.includes(query.trim().toLowerCase());
     return (
       matchesQuery &&
