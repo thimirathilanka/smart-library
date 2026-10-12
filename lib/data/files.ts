@@ -69,7 +69,16 @@ export async function readCatalogUploads(formData: FormData, pdf: "required" | "
     if (file.fileId) await deleteGridFsFile(file.fileId);
     return cover;
   }
-  return { ok: true as const, fileId: file.fileId, coverId: cover.coverId };
+  if (formData.get("keepFile") === "0" && !file.fileId) {
+    if (cover.coverId) await deleteGridFsFile(cover.coverId);
+    return { ok: false as const, error: "Add a PDF to replace the current one." };
+  }
+  return {
+    ok: true as const,
+    fileId: file.fileId,
+    coverId: cover.coverId,
+    clearCover: formData.get("keepCover") === "0" && !cover.coverId,
+  };
 }
 
 function coverContentType(bytes: Uint8Array) {

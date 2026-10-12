@@ -112,8 +112,8 @@ export async function resubmitResourceAction(_prev: CatalogState, formData: Form
   try {
     updated =
       parsed.kind === "book"
-        ? await resubmitBook(id, member._id, parsed.edits, upload.fileId, upload.coverId)
-        : await resubmitPaper(id, member._id, parsed.edits, upload.fileId, upload.coverId);
+        ? await resubmitBook(id, member._id, parsed.edits, upload.fileId, upload.coverId, upload.clearCover)
+        : await resubmitPaper(id, member._id, parsed.edits, upload.fileId, upload.coverId, upload.clearCover);
   } catch {
     await discardGridFsFiles([upload.fileId, upload.coverId]);
     return { error: "This submission could not be sent back for review." };
@@ -151,8 +151,8 @@ export async function submitRevisionAction(_prev: CatalogState, formData: FormDa
   try {
     updated =
       parsed.kind === "book"
-        ? await submitBookRevision(id, member._id, parsed.edits, upload.fileId, upload.coverId)
-        : await submitPaperRevision(id, member._id, parsed.edits, upload.fileId, upload.coverId);
+        ? await submitBookRevision(id, member._id, parsed.edits, upload.fileId, upload.coverId, upload.clearCover)
+        : await submitPaperRevision(id, member._id, parsed.edits, upload.fileId, upload.coverId, upload.clearCover);
   } catch {
     await discardGridFsFiles([upload.fileId, upload.coverId]);
     return { error: "The new version could not be sent for review." };

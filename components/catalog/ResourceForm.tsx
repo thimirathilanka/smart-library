@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { Upload } from "lucide-react";
+import { useActionState, useEffect, useRef, useState, type FormEvent } from "react";
+import { Upload, X } from "lucide-react";
 import { cn } from "@/lib/format";
 import type { AccessType, PublicationStatus, ResourceKind } from "@/lib/types";
 
@@ -24,6 +24,8 @@ export type ResourceFormValues = {
   publicationStatus?: PublicationStatus;
   currentFileName?: string | null;
   hasCover?: boolean;
+  coverSrc?: string;
+  clearCover?: boolean;
 };
 
 export function ResourceForm({
@@ -36,6 +38,7 @@ export function ResourceForm({
   allowFileUpload = false,
   requireFileUpload = false,
   allowPublicationStatus = false,
+  manageExistingFiles = false,
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
   submitLabel: string;
@@ -46,10 +49,51 @@ export function ResourceForm({
   allowFileUpload?: boolean;
   requireFileUpload?: boolean;
   allowPublicationStatus?: boolean;
+  manageExistingFiles?: boolean;
 }) {
   const [kind, setKind] = useState<ResourceKind>(lockKind ?? "book");
   const [state, formAction, pending] = useActionState(action, {} as FormState);
+  const [keepFile, setKeepFile] = useState(true);
+  const [keepCover, setKeepCover] = useState(true);
+  const [nextFileName, setNextFileName] = useState<string | null>(null);
+  const [nextCoverName, setNextCoverName] = useState<string | null>(null);
+  const [clientError, setClientError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
   const selected = lockKind ?? kind;
+  const storedFileName = initial?.currentFileName || null;
+  const coverKept = Boolean(nextCoverName) || (initial?.hasCover ? keepCover : !initial?.clearCover);
+
+  useEffect(() => {
+    if (!state.success) return;
+    setKeepFile(true);
+    setKeepCover(true);
+    setNextFileName(null);
+    setNextCoverName(null);
+    setClientError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (coverInputRef.current) coverInputRef.current.value = "";
+  }, [state.success]);
+
+  function clearChosenFile() {
+    setNextFileName(null);
+    setKeepFile(true);
+    setClientError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function clearChosenCover() {
+    setNextCoverName(null);
+    setKeepCover(true);
+    if (coverInputRef.current) coverInputRef.current.value = "";
+  }
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    if (manageExistingFiles && storedFileName && !keepFile && !nextFileName) {
+      event.preventDefault();
+      setClientError("Add a PDF to replace the current one.");
+    }
+  }
 
   return (
     <div>
@@ -71,11 +115,17 @@ export function ResourceForm({
           ))}
         </div>
       )}
-      <form action={formAction} className="grid gap-4 sm:grid-cols-2">
+      <form action={formAction} onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-2">
         <input type="hidden" name="kind" value={selected} />
         {resourceId ? <input type="hidden" name="id" value={resourceId} /> : null}
+        {manageExistingFiles ? (
+          <>
+            <input type="hidden" name="keepFile" value={!storedFileName || keepFile || nextFileName ? "1" : "0"} />
+            <input type="hidden" name="keepCover" value={coverKept ? "1" : "0"} />
+          </>
+        ) : null}
         {allowFileUpload ? (
-          <label className="rounded-xl border border-dashed border-navy/30 bg-paper px-5 py-6 text-center sm:col-span-2">
+          <div className="rounded-xl border border-dashed border-navy/30 bg-paper px-5 py-6 text-center sm:col-span-2">
             <Upload className="mx-auto size-6 text-navy-soft" aria-hidden="true" />
             <span className="mt-2 block text-sm font-medium text-navy">
               Upload {selected === "book" ? "book" : "research paper"} PDF
@@ -83,46 +133,85 @@ export function ResourceForm({
             <span className="mt-1 block text-xs text-muted">
               {requireFileUpload
                 ? "PDF only, up to 25 MB"
-                : "Optional. PDF only, up to 25 MB. Leave empty to keep the current file."}
+                : manageExistingFiles && storedFileName
+                  ? "Optional. PDF only, up to 25 MB. Leave the current file to keep it, or add a new PDF to replace it."
+                  : "Optional. PDF only, up to 25 MB. Leave empty to keep the current file."}
             </span>
-            {initial?.currentFileName ? (
+            {manageExistingFiles && nextFileName ? (
+              <ExistingFile label={nextFileName} onRemove={clearChosenFile} />
+            ) : manageExistingFiles && keepFile && storedFileName ? (
+              <ExistingFile label={storedFileName} onRemove={() => setKeepFile(false)} />
+            ) : manageExistingFiles && storedFileName && !keepFile ? (
+              <span className="mt-3 block text-sm text-muted">The current PDF will be removed. Add a new PDF to replace it.</span>
+            ) : !manageExistingFiles && initial?.currentFileName ? (
               <span className="mt-3 block text-sm text-navy">
                 Current file: <span className="font-medium">{initial.currentFileName}</span>
               </span>
-            ) : initial?.currentFileName === "" ? (
+            ) : !manageExistingFiles && initial?.currentFileName === "" ? (
               <span className="mt-3 block text-sm text-muted">A PDF is attached.</span>
-            ) : initial?.currentFileName === null ? (
+            ) : !manageExistingFiles && initial?.currentFileName === null ? (
               <span className="mt-3 block text-sm text-muted">No PDF is currently attached.</span>
             ) : null}
+            {clientError ? (
+              <p role="alert" className="mt-3 text-sm text-red-700">
+                {clientError}
+              </p>
+            ) : null}
+            {manageExistingFiles ? <span className="mt-4 block text-xs font-medium text-navy">Add a new PDF</span> : null}
             <input
+              ref={fileInputRef}
               type="file"
               name="file"
               accept="application/pdf,.pdf"
               required={requireFileUpload}
+              onChange={(event) => {
+                setNextFileName(event.target.files?.[0]?.name ?? null);
+                setClientError(null);
+              }}
               className="mt-4 block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-medium file:text-navy hover:file:bg-white/70"
             />
-          </label>
+          </div>
         ) : null}
         {allowFileUpload ? (
-          <label className="rounded-xl border border-dashed border-navy/30 bg-paper px-5 py-6 text-center sm:col-span-2">
+          <div className="rounded-xl border border-dashed border-navy/30 bg-paper px-5 py-6 text-center sm:col-span-2">
             <Upload className="mx-auto size-6 text-navy-soft" aria-hidden="true" />
             <span className="mt-2 block text-sm font-medium text-navy">Cover image</span>
             <span className="mt-1 block text-xs text-muted">
               Optional. JPEG, PNG, or WebP, up to 2 MB.
-              {initial ? " Leave empty to keep the current cover." : ""}
+              {manageExistingFiles && initial?.hasCover
+                ? " Leave the current cover to keep it, or add a new image to replace it."
+                : !manageExistingFiles && initial
+                  ? " Leave empty to keep the current cover."
+                  : ""}
             </span>
-            {initial?.hasCover ? (
+            {manageExistingFiles && nextCoverName ? (
+              <ExistingFile label={nextCoverName} onRemove={clearChosenCover} />
+            ) : manageExistingFiles && keepCover && initial?.hasCover ? (
+              <span className="mt-3 flex items-center justify-center gap-3">
+                {initial.coverSrc ? (
+                  <img src={initial.coverSrc} alt="" className="h-16 w-12 rounded-sm object-cover" />
+                ) : null}
+                <ExistingFile label="Cover image" className="mt-0" onRemove={() => setKeepCover(false)} />
+              </span>
+            ) : manageExistingFiles && initial?.hasCover && !keepCover ? (
+              <span className="mt-3 block text-sm text-muted">The current cover will be removed.</span>
+            ) : manageExistingFiles ? (
+              <span className="mt-3 block text-sm text-muted">No cover image yet.</span>
+            ) : initial?.hasCover ? (
               <span className="mt-3 block text-sm text-navy">A cover image is attached.</span>
             ) : initial ? (
               <span className="mt-3 block text-sm text-muted">No cover image yet.</span>
             ) : null}
+            {manageExistingFiles ? <span className="mt-4 block text-xs font-medium text-navy">Add a new cover</span> : null}
             <input
+              ref={coverInputRef}
               type="file"
               name="cover"
               accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+              onChange={(event) => setNextCoverName(event.target.files?.[0]?.name ?? null)}
               className="mt-4 block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-medium file:text-navy hover:file:bg-white/70"
             />
-          </label>
+          </div>
         ) : null}
         <Field label="Title" name="title" defaultValue={initial?.title} required maxLength={200} />
         {selected === "book" ? (
@@ -204,6 +293,30 @@ export function ResourceForm({
         </button>
       </form>
     </div>
+  );
+}
+
+function ExistingFile({
+  label,
+  onRemove,
+  className,
+}: {
+  label: string;
+  onRemove: () => void;
+  className?: string;
+}) {
+  return (
+    <span className={cn("mt-3 inline-flex max-w-full items-center gap-2 rounded-full bg-white px-3 py-1.5 text-left text-sm text-navy", className)}>
+      <span className="truncate">{label}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove ${label}`}
+        className="shrink-0 rounded-full p-0.5 text-muted hover:bg-paper hover:text-navy"
+      >
+        <X className="size-4" aria-hidden="true" />
+      </button>
+    </span>
   );
 }
 
