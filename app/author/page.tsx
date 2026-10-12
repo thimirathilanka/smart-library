@@ -3,13 +3,19 @@ import { AuthorStudio, type AuthorRevision, type AuthorSubmission } from "@/comp
 import { auth } from "@/auth";
 import { listBooksByAuthor } from "@/lib/data/books";
 import { listPapersByAuthor } from "@/lib/data/papers";
+import { gridFsFilenames } from "@/lib/db";
 import type { Book, BookRevision, PaperRevision, ResearchPaper } from "@/lib/types";
 
 export const metadata = {
   title: "Author studio",
 };
 
-function fromBook(book: Book): AuthorSubmission {
+function storedFileName(fileId: string | undefined, names: Map<string, string>) {
+  if (!fileId) return undefined;
+  return names.get(fileId) || "PDF";
+}
+
+function fromBook(book: Book, names: Map<string, string>): AuthorSubmission {
   return {
     id: book._id,
     kind: "book",
@@ -25,17 +31,20 @@ function fromBook(book: Book): AuthorSubmission {
     description: book.description,
     hasFile: Boolean(book.fileId),
     hasCover: Boolean(book.coverId),
-    revision: book.revision ? bookRevision(book.revision) : undefined,
+    fileName: storedFileName(book.fileId, names),
+    revision: book.revision ? bookRevision(book.revision, names) : undefined,
   };
 }
 
-function bookRevision(revision: BookRevision): AuthorRevision {
+function bookRevision(revision: BookRevision, names: Map<string, string>): AuthorRevision {
   return {
     status: revision.status,
     submittedAt: revision.submittedAt,
     reviewNote: revision.reviewNote,
     hasFile: Boolean(revision.fileId),
     hasCover: Boolean(revision.coverId),
+    fileName: storedFileName(revision.fileId, names),
+    clearCover: Boolean(revision.clearCover),
     title: revision.title,
     author: revision.author,
     isbn: revision.isbn,
@@ -46,7 +55,7 @@ function bookRevision(revision: BookRevision): AuthorRevision {
   };
 }
 
-function fromPaper(paper: ResearchPaper): AuthorSubmission {
+function fromPaper(paper: ResearchPaper, names: Map<string, string>): AuthorSubmission {
   return {
     id: paper._id,
     kind: "paper",
@@ -62,17 +71,20 @@ function fromPaper(paper: ResearchPaper): AuthorSubmission {
     description: paper.abstract,
     hasFile: Boolean(paper.fileId),
     hasCover: Boolean(paper.coverId),
-    revision: paper.revision ? paperRevision(paper.revision) : undefined,
+    fileName: storedFileName(paper.fileId, names),
+    revision: paper.revision ? paperRevision(paper.revision, names) : undefined,
   };
 }
 
-function paperRevision(revision: PaperRevision): AuthorRevision {
+function paperRevision(revision: PaperRevision, names: Map<string, string>): AuthorRevision {
   return {
     status: revision.status,
     submittedAt: revision.submittedAt,
     reviewNote: revision.reviewNote,
     hasFile: Boolean(revision.fileId),
     hasCover: Boolean(revision.coverId),
+    fileName: storedFileName(revision.fileId, names),
+    clearCover: Boolean(revision.clearCover),
     title: revision.title,
     authors: revision.authors.join(", "),
     doi: revision.doi,
@@ -91,8 +103,12 @@ export default async function AuthorPage() {
     listBooksByAuthor(session.user.id),
     listPapersByAuthor(session.user.id),
   ]);
-  const submissions = [...books.map(fromBook), ...papers.map(fromPaper)].sort((a, b) =>
-    b.addedAt.localeCompare(a.addedAt),
+  const fileNames = await gridFsFilenames([
+    ...books.flatMap((book) => [book.fileId, book.revision?.fileId]),
+    ...papers.flatMap((paper) => [paper.fileId, paper.revision?.fileId]),
+  ]);
+  const submissions = [...books.map((book) => fromBook(book, fileNames)), ...papers.map((paper) => fromPaper(paper, fileNames))].sort(
+    (a, b) => b.addedAt.localeCompare(a.addedAt),
   );
 
   return (

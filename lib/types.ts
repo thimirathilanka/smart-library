@@ -12,6 +12,7 @@ type RevisionMeta = {
   reviewNote?: string;
   fileId?: string;
   coverId?: string;
+  clearCover?: boolean;
   aiSummary?: string;
 };
 

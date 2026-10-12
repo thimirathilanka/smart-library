@@ -18,6 +18,7 @@ export type AuthorRevision = ResourceFormValues & {
   reviewNote?: string;
   hasFile: boolean;
   hasCover: boolean;
+  fileName?: string;
 };
 
 export type AuthorSubmission = ResourceFormValues & {
@@ -28,6 +29,7 @@ export type AuthorSubmission = ResourceFormValues & {
   reviewNote?: string;
   hasFile: boolean;
   hasCover: boolean;
+  fileName?: string;
   revision?: AuthorRevision;
 };
 
@@ -90,17 +92,10 @@ function SubmissionRow({ item }: { item: AuthorSubmission }) {
   const fileHref = item.kind === "book" ? `/api/books/${item.id}/file` : `/api/research/${item.id}/file`;
   const coverHref = item.kind === "book" ? `/api/books/${item.id}/cover` : `/api/research/${item.id}/cover`;
   const canEdit = editable.includes(item.status);
-  const revisionInitial: ResourceFormValues | undefined = item.revision
-    ? {
-        ...item.revision,
-        hasCover: item.revision.hasCover,
-        currentFileName: item.revision.hasFile || item.hasFile ? "" : null,
-      }
-    : {
-        ...item,
-        hasCover: item.hasCover,
-        currentFileName: item.hasFile ? "" : null,
-      };
+  const revisionInitial: ResourceFormValues = {
+    ...(item.revision ?? item),
+    ...filesForEdit(item, "revision"),
+  };
 
   return (
     <tr className="border-t border-line align-top">
@@ -133,8 +128,9 @@ function SubmissionRow({ item }: { item: AuthorSubmission }) {
                 pendingLabel="Sending…"
                 lockKind={item.kind}
                 resourceId={item.id}
-                initial={{ ...item, currentFileName: item.hasFile ? "" : null, hasCover: item.hasCover }}
+                initial={{ ...item, ...filesForEdit(item, "submission") }}
                 allowFileUpload
+                manageExistingFiles
               />
             </div>
           </details>
@@ -152,6 +148,7 @@ function SubmissionRow({ item }: { item: AuthorSubmission }) {
               resourceId={item.id}
               initial={revisionInitial}
               allowFileUpload
+              manageExistingFiles
             />
             {item.revision ? <CancelRevision item={item} /> : null}
           </div>
@@ -179,6 +176,34 @@ function SubmissionRow({ item }: { item: AuthorSubmission }) {
       </td>
     </tr>
   );
+}
+
+function filesForEdit(item: AuthorSubmission, mode: "submission" | "revision"): Pick<
+  ResourceFormValues,
+  "currentFileName" | "hasCover" | "coverSrc" | "clearCover"
+> {
+  const base = item.kind === "book" ? `/api/books/${item.id}` : `/api/research/${item.id}`;
+  if (mode === "submission") {
+    return {
+      currentFileName: item.hasFile ? item.fileName || "PDF" : null,
+      hasCover: item.hasCover,
+      coverSrc: item.hasCover ? `${base}/cover` : undefined,
+      clearCover: false,
+    };
+  }
+
+  const revision = item.revision;
+  const useRevisionFile = Boolean(revision?.hasFile);
+  const useRevisionCover = Boolean(revision?.hasCover);
+  const coverCleared = Boolean(revision?.clearCover);
+  const hasFile = useRevisionFile || item.hasFile;
+  const hasCover = useRevisionCover || (!coverCleared && item.hasCover);
+  return {
+    currentFileName: hasFile ? (useRevisionFile ? revision?.fileName : item.fileName) || "PDF" : null,
+    hasCover,
+    coverSrc: hasCover ? `${base}/cover${useRevisionCover ? "?revision=1" : ""}` : undefined,
+    clearCover: coverCleared && !useRevisionCover,
+  };
 }
 
 function WithdrawButton({ item }: { item: AuthorSubmission }) {

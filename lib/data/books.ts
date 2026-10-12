@@ -142,6 +142,7 @@ export async function resubmitBook(
   edits: BookEdits,
   fileId?: string,
   coverId?: string,
+  clearCover = false,
 ) {
   const { books } = await collections();
   const existing = await books.findOne({
@@ -159,12 +160,13 @@ export async function resubmitBook(
         ...(fileId ? { fileId } : {}),
         ...(coverId ? { coverId } : {}),
       },
-      $unset: { reviewNote: "", aiSummary: "" },
+      $unset: { reviewNote: "", aiSummary: "", ...(clearCover && !coverId ? { coverId: "" } : {}) },
     },
   );
   if (result.matchedCount === 0) return false;
   await removeReplacedFile(existing.fileId, fileId);
-  await removeReplacedFile(existing.coverId, coverId);
+  if (coverId) await removeReplacedFile(existing.coverId, coverId);
+  else if (clearCover) await discardGridFsFiles([existing.coverId]);
   return true;
 }
 
@@ -197,24 +199,28 @@ export async function submitBookRevision(
   edits: BookEdits,
   fileId?: string,
   coverId?: string,
+  clearCover = false,
 ) {
   const { books } = await collections();
   const existing = await books.findOne({ _id: id, submittedBy });
   if (!existing || (existing.publicationStatus && existing.publicationStatus !== "published")) return false;
   const previous = existing.revision;
   const nextFileId = fileId ?? previous?.fileId;
-  const nextCoverId = coverId ?? previous?.coverId;
+  const nextCoverId = coverId ?? (clearCover ? undefined : previous?.coverId);
+  const dropCover = clearCover && !nextCoverId;
   const revision: BookRevision = {
     status: "pending",
     submittedAt: new Date().toISOString().slice(0, 10),
     ...edits,
     ...(nextFileId ? { fileId: nextFileId } : {}),
     ...(nextCoverId ? { coverId: nextCoverId } : {}),
+    ...(dropCover ? { clearCover: true } : {}),
   };
   const result = await books.updateOne({ _id: id, submittedBy }, { $set: { revision } });
   if (result.matchedCount === 0) return false;
   if (fileId) await removeReplacedFile(distinctFrom(previous?.fileId, existing.fileId), fileId);
   if (coverId) await removeReplacedFile(distinctFrom(previous?.coverId, existing.coverId), coverId);
+  else if (dropCover) await discardGridFsFiles([distinctFrom(previous?.coverId, existing.coverId)]);
   return true;
 }
 
@@ -241,7 +247,7 @@ async function applyBookRevision(book: Book) {
   if (!revision) return false;
   const { books } = await collections();
   const nextFileId = revision.fileId ?? book.fileId;
-  const nextCoverId = revision.coverId ?? book.coverId;
+  const nextCoverId = revision.clearCover && !revision.coverId ? undefined : (revision.coverId ?? book.coverId);
   const result = await books.updateOne(
     { _id: book._id, "revision.status": "pending" },
     {
@@ -270,6 +276,7 @@ async function applyBookRevision(book: Book) {
   if (result.matchedCount === 0) return false;
   if (revision.fileId) await removeReplacedFile(book.fileId, revision.fileId);
   if (revision.coverId) await removeReplacedFile(book.coverId, revision.coverId);
+  else if (revision.clearCover) await discardGridFsFiles([book.coverId]);
   return true;
 }
 
