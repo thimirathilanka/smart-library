@@ -84,6 +84,8 @@ export type ResearchPaper = {
   pages: string;
   doi: string;
   access: AccessType;
+  rating?: number;
+  ratingsCount?: number;
   addedAt: string;
   reads: number;
   publicationStatus?: PublicationStatus;
@@ -93,6 +95,14 @@ export type ResearchPaper = {
   coverId?: string;
   aiSummary?: string;
   revision?: PaperRevision;
+};
+
+export type ResourceRating = {
+  userId: string;
+  kind: ResourceKind;
+  resourceId: string;
+  score: number;
+  updatedAt: Date;
 };
 
 export type Member = {
@@ -143,6 +153,25 @@ export type MonthlyReads = {
   papers: number;
 };
 
+export type ActivityLogRecord = {
+  actorId: string | null;
+  action: string;
+  targetKind?: string;
+  targetId?: string;
+  detail: string;
+  createdAt: Date;
+};
+
+export type ActivityLogEntry = {
+  actorId: string | null;
+  actorName: string;
+  action: string;
+  targetKind?: string;
+  targetId?: string;
+  detail: string;
+  createdAt: string;
+};
+
 export type PopularResource = {
   _id: string;
   title: string;
@@ -167,4 +196,5 @@ export type AdminCatalog = {
   members: Member[];
   monthlyReads: MonthlyReads[];
   popularResources: PopularResource[];
+  recentActivity: ActivityLogEntry[];
 };

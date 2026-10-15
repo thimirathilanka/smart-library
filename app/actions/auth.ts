@@ -9,6 +9,7 @@ import { incrementBookReads } from "@/lib/data/books";
 import { incrementMonthlyReads } from "@/lib/data/catalog";
 import { createMember, getMemberByEmail, recordReading, toggleLibraryList } from "@/lib/data/members";
 import { incrementPaperReads } from "@/lib/data/papers";
+import { recordActivity } from "@/lib/data/activity";
 import { safeCallbackPath } from "@/lib/safe-callback";
 import type { ResourceKind } from "@/lib/types";
 
@@ -88,8 +89,9 @@ export async function registerAction(_prev: AuthState, formData: FormData): Prom
     return { error: "An account with that email already exists.", values };
   }
 
+  const memberId = `u-${crypto.randomUUID()}`;
   await createMember({
-    _id: `u-${crypto.randomUUID()}`,
+    _id: memberId,
     name,
     email,
     isMember: false,
@@ -101,6 +103,7 @@ export async function registerAction(_prev: AuthState, formData: FormData): Prom
     passwordHash: await hash(password, 10),
     library: { saved: [], history: [], favorites: [] },
   });
+  await recordActivity({ actorId: memberId, action: "auth.registered", detail: `Registered as ${accountType}` });
 
   try {
     await signIn("credentials", { email, password, redirectTo: "/" });
@@ -114,6 +117,8 @@ export async function registerAction(_prev: AuthState, formData: FormData): Prom
 }
 
 export async function signOutAction() {
+  const session = await auth();
+  await recordActivity({ actorId: session?.user?.id ?? null, action: "auth.signed_out", detail: "Signed out" });
   await signOut({ redirectTo: "/" });
 }
 
@@ -124,6 +129,13 @@ export async function trackReadAction(kind: ResourceKind, id: string) {
   await incrementMonthlyReads(kind === "book" ? "books" : "papers");
 
   const session = await auth();
+  await recordActivity({
+    actorId: session?.user?.id ?? null,
+    action: "resource.read",
+    targetKind: kind,
+    targetId: id,
+    detail: `Read ${kind}`,
+  });
   if (session?.user?.id) {
     await recordReading(session.user.id, id, kind);
     revalidatePath("/library");
@@ -134,7 +146,15 @@ export async function toggleLibraryAction(list: "saved" | "favorites", resourceI
   if ((list !== "saved" && list !== "favorites") || !isResourceId(resourceId) || !isResourceKind(kind)) return;
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
-  await toggleLibraryList(session.user.id, list, resourceId, kind);
+  const result = await toggleLibraryList(session.user.id, list, resourceId, kind);
+  const verb = list === "saved" ? (result.added ? "saved" : "removed from saved") : (result.added ? "favorited" : "removed from favorites");
+  await recordActivity({
+    actorId: session.user.id,
+    action: `library.${list}_${result.added ? "added" : "removed"}`,
+    targetKind: kind,
+    targetId: resourceId,
+    detail: `${kind} ${verb}`,
+  });
   revalidatePath("/library");
   revalidatePath(kind === "book" ? `/books/${resourceId}` : `/research/${resourceId}`);
 }

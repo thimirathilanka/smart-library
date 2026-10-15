@@ -112,7 +112,7 @@ export default async function AuthorPage() {
   );
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <p className="text-xs font-semibold tracking-[0.2em] text-navy-soft uppercase">Author studio</p>
       <h1 className="mt-2 font-serif text-4xl text-navy">Author studio</h1>
       <p className="mt-2 max-w-2xl text-muted">

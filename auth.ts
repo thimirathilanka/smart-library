@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import { authConfig } from "@/auth.config";
 import { getMemberByEmail, hasActiveMembership } from "@/lib/data/members";
+import { recordActivity } from "@/lib/data/activity";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -33,4 +34,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
+  events: {
+    async signIn({ user }) {
+      await recordActivity({ actorId: user.id ?? null, action: "auth.signed_in", detail: "Signed in" });
+    },
+  },
 });

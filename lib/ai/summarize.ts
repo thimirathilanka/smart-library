@@ -3,7 +3,7 @@ import "server-only";
 import type { ResourceKind } from "@/lib/types";
 
 const MODEL = "gemini-3.5-flash-lite";
-const TIMEOUT_MS = 8000;
+const TIMEOUT_MS = 30000;
 const SUMMARY_MAX = 1200;
 
 type GeminiResponse = {
@@ -47,11 +47,21 @@ export async function summarizeForCatalog(input: {
         }),
       },
     );
-    if (!response.ok) return null;
+    if (!response.ok) {
+      throw new Error(`Gemini API returned HTTP ${response.status}.`);
+    }
     const payload = (await response.json()) as GeminiResponse;
-    return summaryText(payload);
-  } catch {
-    return null;
+    const summary = summaryText(payload);
+    if (!summary) throw new Error("Gemini returned an empty summary.");
+    return summary;
+  } catch (error) {
+    const reason = error instanceof Error && error.name === "AbortError"
+      ? "The Gemini request timed out."
+      : error instanceof Error
+        ? error.message
+        : "The Gemini request failed.";
+    console.error(`[catalog-ai-summary] ${reason}`);
+    throw new Error(reason);
   } finally {
     clearTimeout(timeout);
   }

@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
-import { BookOpen, Bookmark, Calendar, FileText, Hash, Languages, LockKeyhole, Quote } from "lucide-react";
+import { BookOpen, Bookmark, Calendar, FileText, Hash, Languages, LockKeyhole, Quote, Sparkles } from "lucide-react";
 import { BookCover } from "@/components/ui/BookCover";
 import { AccessBadge } from "@/components/ui/AccessBadge";
 import { RatingStars } from "@/components/ui/RatingStars";
+import { ResourceRatingForm } from "@/components/details/ResourceRatingForm";
 import { CitationBlock } from "@/components/details/CitationBlock";
 import { BookCard } from "@/components/books/BookCard";
 import { PaperCard } from "@/components/papers/PaperCard";
@@ -19,6 +20,7 @@ export function BookDetail({
   promptLocked = false,
   saved = false,
   favorited = false,
+  userRating = 0,
 }: {
   book: Book;
   related: Book[];
@@ -27,6 +29,7 @@ export function BookDetail({
   promptLocked?: boolean;
   saved?: boolean;
   favorited?: boolean;
+  userRating?: number;
 }) {
   const membersOnly = book.access === "members" && !hasMembership;
   return (
@@ -77,12 +80,10 @@ export function BookDetail({
             <AccessBadge access={book.access} />
             <RatingStars rating={book.rating} count={book.ratingsCount} />
           </div>
+          <ResourceRatingForm kind="book" resourceId={book._id} signedIn={signedIn} userRating={userRating} />
           <p className="mt-6 max-w-3xl text-base leading-8 text-muted">{book.description}</p>
           {book.aiSummary ? (
-            <section className="mt-6 max-w-3xl">
-              <h2 className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">AI summary</h2>
-              <p className="mt-2 text-base leading-8 whitespace-pre-line text-muted">{book.aiSummary}</p>
-            </section>
+            <AiSummaryCallout summary={book.aiSummary} />
           ) : null}
           <dl className="mt-8 grid gap-4 rounded-2xl border border-line bg-white p-5 sm:grid-cols-2">
             {book.isbn ? <Meta icon={<Hash className="size-4" />} label="ISBN" value={book.isbn} /> : null}
@@ -119,6 +120,7 @@ export function PaperDetail({
   promptLocked = false,
   saved = false,
   favorited = false,
+  userRating = 0,
 }: {
   paper: ResearchPaper;
   related: ResearchPaper[];
@@ -127,6 +129,7 @@ export function PaperDetail({
   promptLocked?: boolean;
   saved?: boolean;
   favorited?: boolean;
+  userRating?: number;
 }) {
   const membersOnly = paper.access === "members" && !hasMembership;
   return (
@@ -165,6 +168,10 @@ export function PaperDetail({
           </div>
           <h1 className="mt-3 font-serif text-3xl text-navy">{paper.title}</h1>
           <p className="mt-2 text-navy-mid">{paper.authors.join(" · ")}</p>
+          <div className="mt-3">
+            <RatingStars rating={paper.rating ?? 0} count={paper.ratingsCount ?? 0} />
+          </div>
+          <ResourceRatingForm kind="paper" resourceId={paper._id} signedIn={signedIn} userRating={userRating} />
           <ReadAccessLink
             href={`/research/${paper._id}/read`}
             requiresMembership={paper.access === "members"}
@@ -208,10 +215,7 @@ export function PaperDetail({
             <p className="mt-2 text-sm leading-7 text-muted">{paper.abstract}</p>
           </section>
           {paper.aiSummary ? (
-            <section className="mt-6">
-              <h2 className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">AI summary</h2>
-              <p className="mt-2 text-sm leading-7 whitespace-pre-line text-muted">{paper.aiSummary}</p>
-            </section>
+            <AiSummaryCallout summary={paper.aiSummary} />
           ) : null}
           <div className="mt-4 flex flex-wrap gap-1.5">
             {paper.keywords.map((keyword) => (
@@ -243,6 +247,18 @@ export function PaperDetail({
         </section>
       ) : null}
     </div>
+  );
+}
+
+function AiSummaryCallout({ summary }: { summary: string }) {
+  return (
+    <section className="mt-6 max-w-3xl rounded-2xl border border-gold/35 border-l-4 border-l-gold bg-gold/5 p-5 sm:p-6">
+      <div className="flex items-center gap-2.5">
+        <Sparkles className="size-4 text-gold" aria-hidden="true" />
+        <h2 className="font-serif text-xl text-navy">AI summary</h2>
+      </div>
+      <p className="mt-3 whitespace-pre-line text-base leading-7 text-ink/85">{summary}</p>
+    </section>
   );
 }
 

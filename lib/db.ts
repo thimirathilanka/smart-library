@@ -1,7 +1,7 @@
 import "server-only";
 
 import { GridFSBucket, MongoClient, ObjectId, type Collection, type Db, type Document } from "mongodb";
-import type { Book, MemberRecord, MonthlyReads, ResearchPaper } from "@/lib/types";
+import type { ActivityLogRecord, Book, MemberRecord, MonthlyReads, ResearchPaper, ResourceRating } from "@/lib/types";
 
 const dbName = process.env.MONGODB_DB ?? "nextgen-library";
 
@@ -108,6 +108,8 @@ export async function collections() {
     papers: db.collection<ResearchPaper>("papers") as Collection<ResearchPaper>,
     members: db.collection<MemberRecord>("members") as Collection<MemberRecord>,
     monthlyReads: db.collection<MonthlyReads>("monthlyReads") as Collection<MonthlyReads>,
+    activityLogs: db.collection<ActivityLogRecord>("activityLogs") as Collection<ActivityLogRecord>,
+    ratings: db.collection<ResourceRating>("ratings") as Collection<ResourceRating>,
   };
 }
 

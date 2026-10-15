@@ -30,11 +30,13 @@ import {
   withdrawPaper,
 } from "@/lib/data/papers";
 import { discardGridFsFiles } from "@/lib/db";
+import { recordActivity } from "@/lib/data/activity";
 import type { ResourceKind } from "@/lib/types";
 
 export type CatalogState = {
   error?: string;
   success?: string;
+  warning?: string;
 };
 
 async function requireActiveAuthor() {
@@ -65,6 +67,7 @@ export async function submitResourceAction(_prev: CatalogState, formData: FormDa
   const upload = await readCatalogUploads(formData, "required");
   if (!upload.ok) return { error: upload.error };
 
+  let summaryWarning: string | undefined;
   if (draft.kind === "paper") {
     try {
       await createPaper({
@@ -76,7 +79,8 @@ export async function submitResourceAction(_prev: CatalogState, formData: FormDa
       await discardGridFsFiles([upload.fileId, upload.coverId]);
       return { error: "The paper could not be submitted. Please try again." };
     }
-    await storeSummary("paper", draft.paper._id, draft.paper.title, draft.paper.abstract);
+    await recordActivity({ actorId: member._id, action: "author.resource_submitted", targetKind: "paper", targetId: draft.paper._id, detail: `Submitted paper: ${draft.paper.title}` });
+    summaryWarning = await storeSummary("paper", draft.paper._id, draft.paper.title, draft.paper.abstract);
   } else {
     try {
       await createBook({
@@ -88,12 +92,16 @@ export async function submitResourceAction(_prev: CatalogState, formData: FormDa
       await discardGridFsFiles([upload.fileId, upload.coverId]);
       return { error: "The book could not be submitted. Please try again." };
     }
-    await storeSummary("book", draft.book._id, draft.book.title, draft.book.description);
+    await recordActivity({ actorId: member._id, action: "author.resource_submitted", targetKind: "book", targetId: draft.book._id, detail: `Submitted book: ${draft.book.title}` });
+    summaryWarning = await storeSummary("book", draft.book._id, draft.book.title, draft.book.description);
   }
 
   revalidatePath("/author");
   revalidatePath("/admin");
-  return { success: "Submitted for review. It stays hidden until an admin publishes it." };
+  return {
+    success: "Submitted for review. It stays hidden until an admin publishes it.",
+    ...(summaryWarning ? { warning: summaryWarning } : {}),
+  };
 }
 
 export async function resubmitResourceAction(_prev: CatalogState, formData: FormData): Promise<CatalogState> {
@@ -122,8 +130,9 @@ export async function resubmitResourceAction(_prev: CatalogState, formData: Form
     await discardGridFsFiles([upload.fileId, upload.coverId]);
     return { error: "Only your unpublished submission can be edited and sent for review." };
   }
+  await recordActivity({ actorId: member._id, action: "author.resource_resubmitted", targetKind: parsed.kind, targetId: id, detail: `Resubmitted ${parsed.kind}: ${parsed.edits.title}` });
 
-  await storeSummary(
+  const summaryWarning = await storeSummary(
     parsed.kind,
     id,
     parsed.edits.title,
@@ -132,7 +141,7 @@ export async function resubmitResourceAction(_prev: CatalogState, formData: Form
 
   revalidatePath("/author");
   revalidatePath("/admin");
-  return { success: "Sent for review." };
+  return { success: "Sent for review.", ...(summaryWarning ? { warning: summaryWarning } : {}) };
 }
 
 export async function submitRevisionAction(_prev: CatalogState, formData: FormData): Promise<CatalogState> {
@@ -161,8 +170,9 @@ export async function submitRevisionAction(_prev: CatalogState, formData: FormDa
     await discardGridFsFiles([upload.fileId, upload.coverId]);
     return { error: "Only a published title you submitted can get a new version." };
   }
+  await recordActivity({ actorId: member._id, action: "author.revision_submitted", targetKind: parsed.kind, targetId: id, detail: `Submitted a new version of ${parsed.kind}: ${parsed.edits.title}` });
 
-  await storeRevisionSummary(
+  const summaryWarning = await storeRevisionSummary(
     parsed.kind,
     id,
     parsed.edits.title,
@@ -171,7 +181,10 @@ export async function submitRevisionAction(_prev: CatalogState, formData: FormDa
 
   revalidatePath("/author");
   revalidatePath("/admin");
-  return { success: "New version sent for review. The published copy stays online." };
+  return {
+    success: "New version sent for review. The published copy stays online.",
+    ...(summaryWarning ? { warning: summaryWarning } : {}),
+  };
 }
 
 export async function cancelRevisionAction(_prev: CatalogState, formData: FormData): Promise<CatalogState> {
@@ -185,6 +198,7 @@ export async function cancelRevisionAction(_prev: CatalogState, formData: FormDa
       ? await cancelBookRevision(resource.id, member._id)
       : await cancelPaperRevision(resource.id, member._id);
   if (!cancelled) return { error: "There is no version to cancel." };
+  await recordActivity({ actorId: member._id, action: "author.revision_cancelled", targetKind: resource.kind, targetId: resource.id, detail: `Cancelled ${resource.kind} revision` });
 
   revalidatePath("/author");
   revalidatePath("/admin");
@@ -202,6 +216,7 @@ export async function withdrawResourceAction(_prev: CatalogState, formData: Form
       ? await withdrawBook(resource.id, member._id)
       : await withdrawPaper(resource.id, member._id);
   if (!withdrawn) return { error: "Only a submission waiting for review can be withdrawn." };
+  await recordActivity({ actorId: member._id, action: "author.resource_withdrawn", targetKind: resource.kind, targetId: resource.id, detail: `Withdrew ${resource.kind} from review` });
 
   revalidatePath("/author");
   revalidatePath("/admin");
@@ -219,31 +234,40 @@ export async function deleteAuthorResourceAction(_prev: CatalogState, formData: 
       ? await deleteAuthorBook(resource.id, member._id)
       : await deleteAuthorPaper(resource.id, member._id);
   if (!deleted) return { error: "Only your unpublished submission can be deleted." };
+  await recordActivity({ actorId: member._id, action: "author.resource_deleted", targetKind: resource.kind, targetId: resource.id, detail: `Deleted own ${resource.kind} submission` });
 
   revalidatePath("/author");
   revalidatePath("/admin");
   return { success: "Submission deleted." };
 }
 
-async function storeSummary(kind: ResourceKind, id: string, title: string, fallback: string) {
+async function storeSummary(kind: ResourceKind, id: string, title: string, fallback: string): Promise<string | undefined> {
+  if (!process.env.GEMINI_API_KEY?.trim()) {
+    return "The submission was saved, but its AI summary was skipped because GEMINI_API_KEY is missing.";
+  }
   try {
     const summary = await summarizeSavedPdf(kind, id, title, fallback, false);
-    if (!summary) return;
+    if (!summary) return "The submission was saved, but Gemini returned no summary. Check the server terminal for details.";
     if (kind === "book") await setBookSummary(id, summary);
     else await setPaperSummary(id, summary);
+    return undefined;
   } catch {
-    // The submission is already saved. A missing summary does not undo it.
+    return "The submission was saved, but AI summary generation failed. Check the server terminal and Gemini API key.";
   }
 }
 
-async function storeRevisionSummary(kind: ResourceKind, id: string, title: string, fallback: string) {
+async function storeRevisionSummary(kind: ResourceKind, id: string, title: string, fallback: string): Promise<string | undefined> {
+  if (!process.env.GEMINI_API_KEY?.trim()) {
+    return "The version was saved, but its AI summary was skipped because GEMINI_API_KEY is missing.";
+  }
   try {
     const summary = await summarizeSavedPdf(kind, id, title, fallback, true);
-    if (!summary) return;
+    if (!summary) return "The version was saved, but Gemini returned no summary. Check the server terminal for details.";
     if (kind === "book") await setBookRevisionSummary(id, summary);
     else await setPaperRevisionSummary(id, summary);
+    return undefined;
   } catch {
-    // The version is already waiting. A missing summary does not undo it.
+    return "The version was saved, but AI summary generation failed. Check the server terminal and Gemini API key.";
   }
 }
 

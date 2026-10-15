@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { ReaderView } from "@/components/read/ReaderView";
 import { TrackRead } from "@/components/read/TrackRead";
+import { PdfPageViewer } from "@/components/read/PdfPageViewer";
 import { getPaper } from "@/lib/data/papers";
 import { getMemberById, hasActiveMembership } from "@/lib/data/members";
 import { auth } from "@/auth";
@@ -41,11 +42,7 @@ export default async function PaperReaderPage({
         byline={paper.authors.join(", ")}
       >
         {paper.fileId ? (
-          <iframe
-            src={`/api/research/${paper._id}/file`}
-            title={`Read ${paper.title}`}
-            className="h-[78dvh] min-h-[32rem] w-full rounded-lg border border-line bg-white"
-          />
+          <PdfPageViewer src={`/api/research/${paper._id}/file`} title={paper.title} />
         ) : (
           <>
             <p>

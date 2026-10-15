@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { ReaderView } from "@/components/read/ReaderView";
 import { TrackRead } from "@/components/read/TrackRead";
+import { PdfPageViewer } from "@/components/read/PdfPageViewer";
 import { getBook } from "@/lib/data/books";
 import { getMemberById, hasActiveMembership } from "@/lib/data/members";
 import { auth } from "@/auth";
@@ -39,11 +40,7 @@ export default async function BookReaderPage({
         byline={book.author}
       >
         {book.fileId ? (
-          <iframe
-            src={`/api/books/${book._id}/file`}
-            title={`Read ${book.title}`}
-            className="h-[78dvh] min-h-[32rem] w-full rounded-lg border border-line bg-white"
-          />
+          <PdfPageViewer src={`/api/books/${book._id}/file`} title={book.title} />
         ) : (
           <>
             <p>{book.description}</p>

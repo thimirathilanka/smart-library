@@ -21,6 +21,7 @@ import {
   CreditCard,
   LoaderCircle,
   FileText,
+  History,
   Pencil,
   RotateCcw,
   Shield,
@@ -50,6 +51,7 @@ const sections = [
   { id: "papers", label: "Manage papers", icon: FileText },
   { id: "users", label: "Users", icon: Users },
   { id: "review", label: "Review", icon: ClipboardCheck },
+  { id: "activity", label: "Activity log", icon: History },
   { id: "upload", label: "Upload", icon: Upload },
 ] as const;
 
@@ -104,10 +106,89 @@ export function AdminDashboard({
         {section === "review" ? (
           <ReviewPanel books={books} papers={papers} members={members} fileNames={fileNames} />
         ) : null}
+        {section === "activity" ? <ActivityPanel entries={catalog.recentActivity} /> : null}
         {section === "upload" ? <UploadForm /> : null}
       </div>
     </div>
   );
+}
+
+function ActivityPanel({ entries }: { entries: AdminCatalog["recentActivity"] }) {
+  return (
+    <Panel title="Recent activity">
+      {entries.length === 0 ? (
+        <p className="text-sm text-muted">No activity has been recorded yet.</p>
+      ) : (
+        <table className="w-full min-w-[680px] text-left text-sm">
+          <thead className="text-xs tracking-wide text-muted uppercase">
+            <tr>
+              <th className="pb-3 pr-4 font-medium">When</th>
+              <th className="pb-3 pr-4 font-medium">Who</th>
+              <th className="pb-3 pr-4 font-medium">Activity</th>
+              <th className="pb-3 font-medium">Details</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {entries.map((entry, index) => (
+              <tr key={`${entry.createdAt}-${entry.actorId ?? "guest"}-${index}`}>
+                <td className="whitespace-nowrap py-3 pr-4 text-muted">{formatActivityDate(entry.createdAt)}</td>
+                <td className="py-3 pr-4 font-medium text-navy">{entry.actorName}</td>
+                <td className="py-3 pr-4 text-navy-mid">{activityLabel(entry.action)}</td>
+                <td className="py-3 text-muted">
+                  {entry.detail}
+                  {entry.targetKind ? (
+                    <span className="ml-2 text-xs capitalize">
+                      · {entry.targetKind}{entry.targetId ? ` (${entry.targetId})` : ""}
+                    </span>
+                  ) : null}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Panel>
+  );
+}
+
+function activityLabel(action: string) {
+  const labels: Record<string, string> = {
+    "auth.registered": "Registered",
+    "auth.signed_in": "Signed in",
+    "auth.signed_out": "Signed out",
+    "resource.read": "Read resource",
+    "resource.rated": "Rated resource",
+    "library.saved_added": "Saved resource",
+    "library.saved_removed": "Removed saved resource",
+    "library.favorites_added": "Favorited resource",
+    "library.favorites_removed": "Removed favorite",
+    "membership.purchased": "Membership started or renewed",
+    "membership.cancelled": "Membership cancelled",
+    "author.resource_submitted": "Submission received",
+    "author.resource_resubmitted": "Submission resubmitted",
+    "author.revision_submitted": "Revision submitted",
+    "author.revision_cancelled": "Revision cancelled",
+    "author.resource_withdrawn": "Submission withdrawn",
+    "author.resource_deleted": "Submission deleted",
+    "resource.created": "Resource added",
+    "resource.published": "Resource published",
+    "resource.rejected": "Resource rejected",
+    "resource.updated": "Resource edited",
+    "resource.deleted": "Resource deleted",
+    "member.membership_granted": "Membership granted",
+    "member.author_granted": "Author access granted",
+    "member.author_removed": "Author access removed",
+    "member.admin_granted": "Admin access granted",
+    "member.admin_removed": "Admin access removed",
+    "member.suspended": "Member suspended",
+    "member.unsuspended": "Member restored",
+  };
+  return labels[action] ?? action.replace(/[._]/g, " ");
+}
+
+function formatActivityDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
 function AnalyticsPanel({
