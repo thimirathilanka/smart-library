@@ -44,45 +44,47 @@ const editable: PublicationStatus[] = ["pending", "rejected", "withdrawn"];
 
 export function AuthorStudio({ submissions }: { submissions: AuthorSubmission[] }) {
   return (
-    <div className="space-y-8">
-      <section className="overflow-hidden rounded-2xl border border-line bg-white p-5 shadow-sm">
-        <h2 className="font-serif text-xl text-navy">Your submissions</h2>
-        {submissions.length === 0 ? (
-          <p className="mt-4 text-sm text-muted">Nothing submitted yet. New work stays private until an admin publishes it.</p>
-        ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-xs tracking-wide text-muted uppercase">
-                <tr>
-                  <th className="py-2">Title</th>
-                  <th>Kind</th>
-                  <th>Status</th>
-                  <th>Submitted</th>
-                </tr>
-              </thead>
-              <tbody>
-                {submissions.map((item) => (
-                  <SubmissionRow key={item.id} item={item} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      <section className="rounded-2xl border border-line bg-white p-5 shadow-sm">
-        <h2 className="mb-4 font-serif text-xl text-navy">New submission</h2>
-        <p className="mb-5 text-sm text-muted">
-          Submit a book or paper for review. It will not appear in the catalog until an admin publishes it.
-        </p>
+    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(17rem,1fr)]">
+      <section className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6">
+        <div className="mb-5 border-b border-line pb-4">
+          <p className="text-xs font-semibold tracking-[0.18em] text-navy-soft uppercase">Share your work</p>
+          <h2 className="mt-1 font-serif text-2xl text-navy">New submission</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">
+            Choose a resource type, add its details, and attach the PDF. Your work stays hidden until an admin reviews and publishes it.
+          </p>
+        </div>
         <ResourceForm
           action={submitResourceAction}
           submitLabel="Submit for review"
           pendingLabel="Submitting…"
           allowFileUpload
           requireFileUpload
+          authorLayout
         />
       </section>
+
+      <section className="overflow-hidden rounded-2xl border border-line bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 className="font-serif text-2xl text-navy">Your submissions</h2>
+            <p className="mt-1 text-sm text-muted">Track review status and manage your submitted work.</p>
+          </div>
+          <span className="rounded-full bg-paper px-3 py-1 text-xs font-medium text-navy-mid">
+            {submissions.length} {submissions.length === 1 ? "submission" : "submissions"}
+          </span>
+        </div>
+        {submissions.length === 0 ? (
+          <div className="mt-5 rounded-xl border border-dashed border-line bg-paper/50 px-5 py-8 text-center">
+            <p className="font-medium text-navy">No submissions yet</p>
+            <p className="mt-1 text-sm text-muted">Start with a new book or research paper below.</p>
+          </div>
+        ) : (
+          <div className="mt-5 grid gap-4">
+            {submissions.map((item) => <SubmissionRow key={item.id} item={item} />)}
+          </div>
+        )}
+      </section>
+
     </div>
   );
 }
@@ -97,31 +99,83 @@ function SubmissionRow({ item }: { item: AuthorSubmission }) {
     ...filesForEdit(item, "revision"),
   };
 
+  const statusColor = item.status === "published"
+    ? "bg-emerald-50 text-emerald-800 ring-emerald-200"
+    : item.status === "rejected"
+      ? "bg-red-50 text-red-800 ring-red-200"
+      : "bg-amber-50 text-amber-900 ring-amber-200";
+
   return (
-    <tr className="border-t border-line align-top">
-      <td className="max-w-md py-3">
-        <p className="font-medium text-navy">{item.title}</p>
+    <article className="rounded-xl border border-line bg-white p-3 shadow-sm">
+      <div className="flex gap-3">
+        {item.hasCover ? (
+          <img src={coverHref} alt={`Cover for ${item.title}`} className="h-24 w-16 shrink-0 rounded-sm object-cover shadow-sm" />
+        ) : (
+          <div className="flex h-24 w-16 shrink-0 items-center justify-center rounded-sm border border-dashed border-line bg-paper px-1 text-center text-[10px] text-muted">
+            No cover
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+              {item.kind}
+            </span>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${statusColor}`}>
+              {statusLabel[item.status]}
+            </span>
+          </div>
+          <h3 className="mt-1 line-clamp-2 font-serif text-base leading-snug text-navy">{item.title}</h3>
+          <p className="mt-1 line-clamp-1 text-xs text-navy-mid">
+            {item.kind === "book" ? item.author : item.authors}
+          </p>
+          <p className="mt-1 line-clamp-1 text-[11px] text-muted">
+            {item.kind === "book" ? item.category : item.field} · {item.addedAt}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-3 space-y-2">
         {item.status === "rejected" && item.reviewNote ? (
-          <p className="mt-1 text-sm text-red-800">{item.reviewNote}</p>
+          <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-xs leading-5 text-red-800">
+            <span className="font-semibold">Review note: </span>{item.reviewNote}
+          </p>
         ) : null}
         {item.revision?.status === "pending" ? (
-          <p className="mt-1 text-sm text-navy-mid">A new version is waiting for review. The published copy stays online.</p>
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs leading-5 text-amber-900">
+            New version under review. Published copy stays online.
+          </p>
         ) : null}
         {item.revision?.status === "rejected" && item.revision.reviewNote ? (
-          <p className="mt-1 text-sm text-red-800">{item.revision.reviewNote}</p>
+          <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-xs leading-5 text-red-800">
+            <span className="font-semibold">Revision note: </span>{item.revision.reviewNote}
+          </p>
         ) : null}
-        {item.hasCover && item.status !== "published" ? (
-          <img src={coverHref} alt="" className="mt-2 h-24 w-16 rounded-sm object-cover" />
-        ) : null}
-        {item.hasFile && item.status !== "published" ? (
-          <a href={fileHref} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-medium text-navy underline">
-            Preview PDF
-          </a>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          {item.hasFile && item.status !== "published" ? (
+            <a href={fileHref} target="_blank" rel="noreferrer" className="text-xs font-medium text-navy underline underline-offset-2">
+              Preview PDF
+            </a>
+          ) : null}
+          {item.status === "published" ? (
+            <button
+              type="button"
+              aria-expanded={versionOpen}
+              aria-label={`${versionOpen ? "Close editor for" : "Edit"} ${item.title}`}
+              onClick={() => setVersionOpen((open) => !open)}
+              className="text-xs font-medium text-navy underline underline-offset-2"
+            >
+              {versionOpen ? "Close editor" : "New version"}
+            </button>
+          ) : null}
+          {item.status === "pending" ? <WithdrawButton item={item} /> : null}
+          {canEdit ? <DeleteSubmission item={item} /> : null}
+        </div>
         {canEdit ? (
-          <details className="mt-3">
-            <summary className="cursor-pointer text-sm font-medium text-navy">Edit and send for review</summary>
-            <div className="mt-4">
+          <details>
+            <summary className="cursor-pointer text-xs font-medium text-navy underline underline-offset-2">
+              Edit and resubmit
+            </summary>
+            <div className="mt-3 rounded-lg border border-line bg-paper/35 p-3">
               <ResourceForm
                 action={resubmitResourceAction}
                 submitLabel="Send for review"
@@ -136,10 +190,7 @@ function SubmissionRow({ item }: { item: AuthorSubmission }) {
           </details>
         ) : null}
         {item.status === "published" && versionOpen ? (
-          <div className="mt-4">
-            {item.revision?.hasCover ? (
-              <img src={`${coverHref}?revision=1`} alt="" className="mb-3 h-24 w-16 rounded-sm object-cover" />
-            ) : null}
+          <div className="rounded-lg border border-line bg-paper/35 p-3">
             <ResourceForm
               action={submitRevisionAction}
               submitLabel="Send new version"
@@ -153,28 +204,8 @@ function SubmissionRow({ item }: { item: AuthorSubmission }) {
             {item.revision ? <CancelRevision item={item} /> : null}
           </div>
         ) : null}
-        {item.status === "pending" ? <WithdrawButton item={item} /> : null}
-        {canEdit ? <DeleteSubmission item={item} /> : null}
-      </td>
-      <td className="py-3 capitalize">{item.kind}</td>
-      <td className="py-3">{statusLabel[item.status]}</td>
-      <td className="py-3 whitespace-nowrap">
-        <div className="flex items-center gap-3">
-          <span>{item.addedAt}</span>
-          {item.status === "published" ? (
-            <button
-              type="button"
-              aria-expanded={versionOpen}
-              aria-label={`Edit ${item.title}`}
-              onClick={() => setVersionOpen((open) => !open)}
-              className="rounded-full border border-line px-3 py-1.5 text-xs font-medium text-navy hover:bg-paper"
-            >
-              Edit
-            </button>
-          ) : null}
-        </div>
-      </td>
-    </tr>
+      </div>
+    </article>
   );
 }
 
@@ -209,7 +240,7 @@ function filesForEdit(item: AuthorSubmission, mode: "submission" | "revision"): 
 function WithdrawButton({ item }: { item: AuthorSubmission }) {
   const [state, action, pending] = useActionState(withdrawResourceAction, {});
   return (
-    <form action={action} className="mt-3">
+    <form action={action}>
       <input type="hidden" name="id" value={item.id} />
       <input type="hidden" name="kind" value={item.kind} />
       <button
@@ -252,7 +283,7 @@ function DeleteSubmission({ item }: { item: AuthorSubmission }) {
   }, [state.success]);
 
   return (
-    <div className="mt-3">
+    <div>
       <button
         type="button"
         onClick={() => dialogRef.current?.showModal()}

@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
+import { extractPdfExcerpt } from "@/lib/ai/pdf-excerpt";
+import { summarizeForCatalog } from "@/lib/ai/summarize";
 import { draftFromForm, editsFromForm } from "@/lib/catalog-form";
-import { createBook, deleteBook, publishBook, rejectBook, updateBook } from "@/lib/data/books";
+import { createBook, deleteBook, getBookForStaff, publishBook, rejectBook, setBookSummary, updateBook } from "@/lib/data/books";
 import {
   getMemberById,
   grantMembership,
@@ -12,13 +14,15 @@ import {
   setMemberStatus,
 } from "@/lib/data/members";
 import { readCatalogUploads } from "@/lib/data/files";
-import { createPaper, deletePaper, publishPaper, rejectPaper, updatePaper } from "@/lib/data/papers";
+import { createPaper, deletePaper, getPaperForStaff, publishPaper, rejectPaper, setPaperSummary, updatePaper } from "@/lib/data/papers";
 import { discardGridFsFiles } from "@/lib/db";
+import { recordActivity } from "@/lib/data/activity";
 import type { PublicationStatus, ResourceKind } from "@/lib/types";
 
 export type CatalogState = {
   error?: string;
   success?: string;
+  warning?: string;
 };
 
 export type MemberActionState = {
@@ -88,8 +92,16 @@ export async function createResourceAction(_prev: CatalogState, formData: FormDa
       await discardGridFsFiles([upload.fileId, upload.coverId]);
       return { error: "The paper could not be added. Please try again." };
     }
+    await recordActivity({ actorId: member._id, action: "resource.created", targetKind: "paper", targetId: draft.paper._id, detail: `Added paper: ${draft.paper.title}` });
+    const warning = await generateAndSaveSummary(
+      "paper",
+      draft.paper._id,
+      draft.paper.title,
+      draft.paper.abstract,
+      upload.fileId,
+    );
     revalidatePublic();
-    return { success: "Paper added to the catalog." };
+    return { success: "Paper added to the catalog.", ...(warning ? { warning } : {}) };
   }
 
   try {
@@ -98,8 +110,16 @@ export async function createResourceAction(_prev: CatalogState, formData: FormDa
     await discardGridFsFiles([upload.fileId, upload.coverId]);
     return { error: "The book could not be added. Please try again." };
   }
+  await recordActivity({ actorId: member._id, action: "resource.created", targetKind: "book", targetId: draft.book._id, detail: `Added book: ${draft.book.title}` });
+  const warning = await generateAndSaveSummary(
+    "book",
+    draft.book._id,
+    draft.book.title,
+    draft.book.description,
+    upload.fileId,
+  );
   revalidatePublic();
-  return { success: "Book added to the catalog." };
+  return { success: "Book added to the catalog.", ...(warning ? { warning } : {}) };
 }
 
 export async function publishResourceAction(_prev: CatalogState, formData: FormData): Promise<CatalogState> {
@@ -114,6 +134,7 @@ export async function publishResourceAction(_prev: CatalogState, formData: FormD
 
   const published = kind === "book" ? await publishBook(id) : await publishPaper(id);
   if (!published) return { error: "That submission is no longer waiting for review." };
+  await recordActivity({ actorId: member._id, action: "resource.published", targetKind: kind, targetId: id, detail: `Published ${kind}` });
 
   revalidatePublic();
   return { success: "Published." };
@@ -134,6 +155,7 @@ export async function rejectResourceAction(_prev: CatalogState, formData: FormDa
 
   const rejected = kind === "book" ? await rejectBook(id, reviewNote) : await rejectPaper(id, reviewNote);
   if (!rejected) return { error: "That submission is no longer waiting for review." };
+  await recordActivity({ actorId: member._id, action: "resource.rejected", targetKind: kind, targetId: id, detail: `Rejected ${kind}` });
 
   revalidatePublic();
   return { success: "Rejected." };
@@ -165,9 +187,66 @@ export async function updateResourceAction(_prev: CatalogState, formData: FormDa
     await discardGridFsFiles([upload.fileId, upload.coverId]);
     return { error: "That resource could not be updated." };
   }
+  await recordActivity({ actorId: member._id, action: "resource.updated", targetKind: resource.kind, targetId: resource.id, detail: `Updated ${resource.kind}` });
+
+  let summaryWarning: string | undefined;
+  try {
+    if (parsed.kind === "book") {
+      const book = await getBookForStaff(resource.id);
+      if (book && !book.aiSummary) {
+        summaryWarning = await generateAndSaveSummary(
+          "book",
+          resource.id,
+          parsed.edits.title,
+          parsed.edits.description,
+          book.fileId,
+        );
+      }
+    } else {
+      const paper = await getPaperForStaff(resource.id);
+      if (paper && !paper.aiSummary) {
+        summaryWarning = await generateAndSaveSummary(
+          "paper",
+          resource.id,
+          parsed.edits.title,
+          parsed.edits.abstract,
+          paper.fileId,
+        );
+      }
+    }
+  } catch {
+    summaryWarning = "The resource was updated, but its AI summary could not be generated. Check the server terminal.";
+  }
 
   revalidatePublic(resource.kind, resource.id);
-  return { success: "Resource updated." };
+  return { success: "Resource updated.", ...(summaryWarning ? { warning: summaryWarning } : {}) };
+}
+
+async function generateAndSaveSummary(
+  kind: ResourceKind,
+  id: string,
+  title: string,
+  fallback: string,
+  fileId?: string,
+): Promise<string | undefined> {
+  if (!process.env.GEMINI_API_KEY?.trim()) {
+    return "The resource was saved, but its AI summary was skipped because GEMINI_API_KEY is missing.";
+  }
+  try {
+    const excerpt = await extractPdfExcerpt(fileId);
+    const summary = await summarizeForCatalog({
+      kind,
+      title,
+      source: excerpt ?? fallback,
+      excerpt: Boolean(excerpt),
+    });
+    if (!summary) return "The resource was saved, but Gemini returned no summary. Check the server terminal for details.";
+    if (kind === "book") await setBookSummary(id, summary);
+    else await setPaperSummary(id, summary);
+    return undefined;
+  } catch {
+    return "The resource was saved, but AI summary generation failed. Check the server terminal and Gemini API key.";
+  }
 }
 
 export async function deleteResourceAction(_prev: CatalogState, formData: FormData): Promise<CatalogState> {
@@ -181,6 +260,7 @@ export async function deleteResourceAction(_prev: CatalogState, formData: FormDa
     ? await deleteBook(resource.id)
     : await deletePaper(resource.id);
   if (!deleted) return { error: "That resource could not be found." };
+  await recordActivity({ actorId: member._id, action: "resource.deleted", targetKind: resource.kind, targetId: resource.id, detail: `Deleted ${resource.kind}` });
 
   revalidatePublic(resource.kind, resource.id);
   return { success: "Resource deleted." };
@@ -200,6 +280,7 @@ export async function manageMemberAction(
   if (operation === "membership") {
     const membershipExpiresAt = await grantMembership(memberId);
     if (!membershipExpiresAt) return { error: "Membership could not be updated." };
+    await recordActivity({ actorId: admin._id, action: "member.membership_granted", targetKind: "member", targetId: memberId, detail: "Granted or renewed membership" });
     revalidatePath("/admin");
     revalidatePath("/membership");
     return { success: `Membership active through ${membershipExpiresAt}.` };
@@ -209,6 +290,7 @@ export async function manageMemberAction(
     const enabled = operation === "make-author";
     const updated = await setMemberAuthor(memberId, enabled);
     if (!updated) return { error: "That member could not be found." };
+    await recordActivity({ actorId: admin._id, action: enabled ? "member.author_granted" : "member.author_removed", targetKind: "member", targetId: memberId, detail: enabled ? "Granted author access" : "Removed author access" });
     revalidatePath("/admin");
     revalidatePath("/author");
     return { success: enabled ? "Author access granted." : "Author access removed." };
@@ -220,6 +302,7 @@ export async function manageMemberAction(
     const result = await setMemberAdmin(memberId, enabled);
     if (result === "not-found") return { error: "That member could not be found." };
     if (result === "last-admin") return { error: "The last active admin cannot be demoted." };
+    await recordActivity({ actorId: admin._id, action: enabled ? "member.admin_granted" : "member.admin_removed", targetKind: "member", targetId: memberId, detail: enabled ? "Granted admin access" : "Removed admin access" });
     revalidatePath("/admin");
     return { success: enabled ? "Admin access granted." : "Admin access removed." };
   }
@@ -232,6 +315,7 @@ export async function manageMemberAction(
     const result = await setMemberStatus(memberId, status);
     if (result === "not-found") return { error: "That member could not be found." };
     if (result === "last-admin") return { error: "The last active admin cannot be suspended." };
+    await recordActivity({ actorId: admin._id, action: status === "Active" ? "member.unsuspended" : "member.suspended", targetKind: "member", targetId: memberId, detail: status === "Active" ? "Restored member access" : "Suspended member" });
     revalidatePath("/admin");
     return { success: status === "Active" ? "Member unsuspended." : "Member suspended." };
   }

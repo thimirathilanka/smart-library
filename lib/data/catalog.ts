@@ -5,6 +5,7 @@ import { listAllBooks, listBooks } from "@/lib/data/books";
 import { listAllPapers, listPapers } from "@/lib/data/papers";
 import { withPublished } from "@/lib/data/publication";
 import { listMembers } from "@/lib/data/members";
+import { listRecentActivity } from "@/lib/data/activity";
 import { toPlain } from "@/lib/data/serialize";
 import type {
   AdminCatalog,
@@ -79,12 +80,13 @@ export async function incrementMonthlyReads(kind: "books" | "papers") {
 }
 
 export async function getAdminCatalog(): Promise<AdminCatalog> {
-  const [books, papers, members, monthly, popular] = await Promise.all([
+  const [books, papers, members, monthly, popular, recentActivity] = await Promise.all([
     listAllBooks(),
     listAllPapers(),
     listMembers(),
     getMonthlyReads(),
     popularResources(),
+    listRecentActivity(),
   ]);
   return {
     books,
@@ -92,6 +94,7 @@ export async function getAdminCatalog(): Promise<AdminCatalog> {
     members,
     monthlyReads: monthly,
     popularResources: popular,
+    recentActivity,
   };
 }
 

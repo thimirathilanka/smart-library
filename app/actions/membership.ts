@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { cancelMembership, grantMembership } from "@/lib/data/members";
+import { recordActivity } from "@/lib/data/activity";
 
 export type MembershipPurchaseResult = {
   success: boolean;
@@ -20,6 +21,7 @@ export async function purchaseMembershipAction(): Promise<MembershipPurchaseResu
   if (!membershipExpiresAt) {
     return { success: false, error: "Your membership could not be updated." };
   }
+  await recordActivity({ actorId: memberId, action: "membership.purchased", targetKind: "membership", detail: "Started or renewed membership" });
 
   revalidatePath("/membership");
   return { success: true, isMember: true, membershipExpiresAt };
@@ -34,6 +36,7 @@ export async function cancelMembershipAction(): Promise<MembershipPurchaseResult
   if (!cancelled) {
     return { success: false, error: "Your membership could not be cancelled." };
   }
+  await recordActivity({ actorId: memberId, action: "membership.cancelled", targetKind: "membership", detail: "Cancelled membership" });
 
   revalidatePath("/membership");
   return { success: true, isMember: false };
