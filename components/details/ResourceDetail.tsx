@@ -21,6 +21,7 @@ export function BookDetail({
   saved = false,
   favorited = false,
   userRating = 0,
+  pageCount,
 }: {
   book: Book;
   related: Book[];
@@ -30,6 +31,7 @@ export function BookDetail({
   saved?: boolean;
   favorited?: boolean;
   userRating?: number;
+  pageCount?: number;
 }) {
   const membersOnly = book.access === "members" && !hasMembership;
   return (
@@ -89,7 +91,7 @@ export function BookDetail({
             {book.isbn ? <Meta icon={<Hash className="size-4" />} label="ISBN" value={book.isbn} /> : null}
             <Meta icon={<Quote className="size-4" />} label="Publisher" value={book.publisher} />
             <Meta icon={<Calendar className="size-4" />} label="Year" value={String(book.year)} />
-            <Meta icon={<FileText className="size-4" />} label="Pages" value={String(book.pages)} />
+            <Meta icon={<FileText className="size-4" />} label="Pages" value={String(pageCount ?? book.pages)} />
             <Meta icon={<Languages className="size-4" />} label="Language" value={book.language} />
             <Meta icon={<Bookmark className="size-4" />} label="Reads" value={formatNumber(book.reads)} />
           </dl>
