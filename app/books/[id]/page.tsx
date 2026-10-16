@@ -4,6 +4,7 @@ import { getBook, relatedBooks } from "@/lib/data/books";
 import { auth } from "@/auth";
 import { getMemberById, hasActiveMembership } from "@/lib/data/members";
 import { getUserResourceRating } from "@/lib/data/ratings";
+import { getPdfPageCount } from "@/lib/ai/pdf-excerpt";
 
 export async function generateMetadata({ params }: PageProps<"/books/[id]">) {
   const { id } = await params;
@@ -20,10 +21,11 @@ export default async function BookPage({
   const book = await getBook(id);
   if (!book) notFound();
   const session = await auth();
-  const [member, related, userRating] = await Promise.all([
+  const [member, related, userRating, pageCount] = await Promise.all([
     session?.user?.id ? getMemberById(session.user.id) : Promise.resolve(null),
     relatedBooks(book),
     session?.user?.id ? getUserResourceRating(session.user.id, "book", book._id) : Promise.resolve(0),
+    getPdfPageCount(book.fileId),
   ]);
   const library = member?.library;
   const hasMembership = hasActiveMembership(member);
@@ -38,6 +40,7 @@ export default async function BookPage({
       saved={library?.saved.some((item) => item.resourceId === book._id) ?? false}
       favorited={library?.favorites.some((item) => item.resourceId === book._id) ?? false}
       userRating={userRating}
+      pageCount={pageCount ?? book.pages}
     />
   );
 }

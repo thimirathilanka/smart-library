@@ -18,6 +18,21 @@ export async function extractPdfExcerpt(fileId: string | undefined): Promise<str
   }
 }
 
+export async function getPdfPageCount(fileId: string | undefined): Promise<number | null> {
+  if (!fileId) return null;
+  let pdf: Awaited<ReturnType<typeof getDocumentProxy>> | undefined;
+  try {
+    const opened = await openGridFsFile(fileId);
+    if (!opened) return null;
+    pdf = await getDocumentProxy(new Uint8Array(await readToBuffer(opened.stream)));
+    return pdf.numPages;
+  } catch {
+    return null;
+  } finally {
+    if (pdf) await pdf.loadingTask.destroy().catch(() => undefined);
+  }
+}
+
 export async function excerptFromPdf(bytes: Uint8Array): Promise<string | null> {
   let pdf: Awaited<ReturnType<typeof getDocumentProxy>> | undefined;
   try {
