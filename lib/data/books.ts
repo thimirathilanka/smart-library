@@ -40,6 +40,16 @@ export async function featuredBooks() {
   );
 }
 
+export async function mostViewedBook() {
+  const { books } = await collections();
+  const [book] = await books
+    .find(withPublished<Book>({}))
+    .sort({ reads: -1, addedAt: -1 })
+    .limit(1)
+    .toArray();
+  return book ? toPlain(book) : null;
+}
+
 export async function relatedBooks(book: Book, limit = 4) {
   const { books } = await collections();
   const sameCategory = await books

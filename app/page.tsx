@@ -1,16 +1,17 @@
 import { ArrowRight, BookOpen, FileText, Play, Users, Eye } from "lucide-react";
 import { FeaturedCarousel } from "@/components/home/FeaturedCarousel";
 import { BookCover } from "@/components/ui/BookCover";
-import { featuredBooks } from "@/lib/data/books";
+import { featuredBooks, mostViewedBook } from "@/lib/data/books";
 import { latestPapers } from "@/lib/data/papers";
 import { getLibraryStats, recentlyAdded } from "@/lib/data/catalog";
 import { formatCompact } from "@/lib/format";
 import Link from "next/link";
 
 export default async function HomePage() {
-  const [statsData, featured, papers, recent] = await Promise.all([
+  const [statsData, featured, lead, papers, recent] = await Promise.all([
     getLibraryStats(),
     featuredBooks(),
+    mostViewedBook(),
     latestPapers(),
     recentlyAdded(),
   ]);
@@ -21,29 +22,31 @@ export default async function HomePage() {
     { label: "Reads this month", value: statsData.readsThisMonth, icon: Eye },
   ];
 
-  const lead = featured[0];
-  const shelfBooks = lead ? featured.slice(1) : featured;
+  const shelfBooks = lead ? featured.filter((book) => book._id !== lead._id) : featured;
 
   return (
     <div className="overflow-hidden bg-[#101311] text-white">
       <section className="relative isolate border-b border-white/10">
-        {lead?.coverId ? (
+        {lead ? (
           <div
             aria-hidden="true"
-            className="absolute inset-0 -z-20 bg-cover bg-[position:65%_38%] opacity-30 blur-[2px]"
-            style={{ backgroundImage: `url(/api/books/${lead._id}/cover)` }}
+            className="absolute inset-0 -z-20 bg-cover bg-[position:65%_38%] opacity-70"
+            style={{
+              backgroundImage: lead.coverId
+                ? `url(/api/books/${lead._id}/cover)`
+                : `linear-gradient(135deg, ${lead.cover.from}, ${lead.cover.to})`,
+            }}
           />
         ) : null}
-        <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,#101311_5%,rgba(16,19,17,.96)_37%,rgba(16,19,17,.6)_72%,#101311_100%),linear-gradient(0deg,#101311_0%,transparent_65%)]" />
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,#101311_0%,rgba(16,19,17,.88)_32%,rgba(16,19,17,.28)_72%,rgba(16,19,17,.12)_100%),linear-gradient(0deg,#101311_0%,transparent_48%)]" />
         <div className="mx-auto grid min-h-[490px] max-w-7xl items-center gap-10 px-5 py-12 sm:px-8 md:min-h-[550px] md:grid-cols-[1.15fr_.85fr] md:py-16 lg:px-10">
           <div className="relative z-10 max-w-2xl animate-fade-up">
             <div className="mb-5 flex items-center gap-3 text-[11px] font-semibold tracking-[0.24em] text-[#e50914] uppercase">
-              <span className="h-px w-8 bg-[#e50914]" />
               The Nextgen collection
             </div>
             {lead ? (
               <>
-                <p className="mb-3 text-sm font-medium text-white/65">Featured title · {lead.category}</p>
+                <p className="mb-3 text-sm font-medium text-white/65">Most viewed · {lead.category}</p>
                 <h1 className="max-w-xl font-serif text-4xl leading-[1.08] text-white sm:text-5xl lg:text-6xl">
                   {lead.title}
                 </h1>

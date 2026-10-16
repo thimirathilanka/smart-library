@@ -243,7 +243,7 @@ export function PdfPageViewer({
   }, [pageNumber, zoomPercent]);
 
   return (
-    <section ref={sectionRef} className={`mt-8 overflow-hidden rounded-2xl border border-line bg-[#242528]${isFullscreen ? " reader-fullscreen" : ""}`} aria-label="PDF reader">
+    <section ref={sectionRef} className={`reader-theme mt-8 overflow-hidden rounded-2xl border border-line bg-slate-200${isFullscreen ? " reader-fullscreen" : ""}`} aria-label="PDF reader">
       <div className="flex flex-col gap-2 border-b border-line bg-white px-3 py-3 sm:px-4">
         <div className="flex min-w-0 items-center justify-between gap-3">
           <button type="button" onClick={requestExit} className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1.5 text-xs font-medium text-navy-mid hover:bg-paper hover:text-navy sm:text-sm">
