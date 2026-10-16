@@ -156,6 +156,9 @@ function LibraryRow({
 }) {
   const href = book ? `/books/${book._id}` : paper ? `/research/${paper._id}` : "#";
   const readHref = book ? `/books/${book._id}/read` : paper ? `/research/${paper._id}/read` : "#";
+  const progress = item.bookmarkPage && item.totalPages
+    ? Math.min(100, Math.round((item.bookmarkPage / item.totalPages) * 100))
+    : undefined;
 
   return (
     <div className="flex gap-4 rounded-2xl border border-line bg-white p-4 shadow-sm">
@@ -177,15 +180,16 @@ function LibraryRow({
         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted">
           {item.savedAt ? <span>Saved {formatDate(item.savedAt)}</span> : null}
           {item.lastReadAt ? <span>Last read {formatDate(item.lastReadAt)}</span> : null}
-          {item.progress != null ? (
+          {item.bookmarkPage != null && item.totalPages && progress != null ? (
             <span className="inline-flex items-center gap-2">
-              {item.progress}%
+              {progress}%
               <span className="h-1.5 w-24 overflow-hidden rounded-full bg-line">
                 <span
                   className="block h-full bg-navy"
-                  style={{ width: `${item.progress}%` }}
+                  style={{ width: `${progress}%` }}
                 />
               </span>
+              <span>Page {item.bookmarkPage} of {item.totalPages}</span>
             </span>
           ) : null}
         </div>
@@ -194,7 +198,7 @@ function LibraryRow({
         href={readHref}
         className="hidden self-center rounded-full bg-navy px-4 py-2 text-sm text-white hover:bg-navy-mid sm:inline-flex"
       >
-        Continue
+        {item.bookmarkPage ? `Continue · p. ${item.bookmarkPage}` : "Continue"}
       </Link>
     </div>
   );

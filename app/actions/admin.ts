@@ -17,6 +17,7 @@ import { readCatalogUploads } from "@/lib/data/files";
 import { createPaper, deletePaper, getPaperForStaff, publishPaper, rejectPaper, setPaperSummary, updatePaper } from "@/lib/data/papers";
 import { discardGridFsFiles } from "@/lib/db";
 import { recordActivity } from "@/lib/data/activity";
+import { notifyAdmins, notifyReaders, notifyUsers } from "@/lib/data/notifications";
 import type { PublicationStatus, ResourceKind } from "@/lib/types";
 
 export type CatalogState = {
@@ -93,6 +94,7 @@ export async function createResourceAction(_prev: CatalogState, formData: FormDa
       return { error: "The paper could not be added. Please try again." };
     }
     await recordActivity({ actorId: member._id, action: "resource.created", targetKind: "paper", targetId: draft.paper._id, detail: `Added paper: ${draft.paper.title}` });
+    await notifyReaders({ title: "New in the library", message: `“${draft.paper.title}” is now available to read.`, href: `/research/${draft.paper._id}` });
     const warning = await generateAndSaveSummary(
       "paper",
       draft.paper._id,
@@ -111,6 +113,7 @@ export async function createResourceAction(_prev: CatalogState, formData: FormDa
     return { error: "The book could not be added. Please try again." };
   }
   await recordActivity({ actorId: member._id, action: "resource.created", targetKind: "book", targetId: draft.book._id, detail: `Added book: ${draft.book.title}` });
+  await notifyReaders({ title: "New in the library", message: `“${draft.book.title}” is now available to read.`, href: `/books/${draft.book._id}` });
   const warning = await generateAndSaveSummary(
     "book",
     draft.book._id,
@@ -134,6 +137,18 @@ export async function publishResourceAction(_prev: CatalogState, formData: FormD
 
   const published = kind === "book" ? await publishBook(id) : await publishPaper(id);
   if (!published) return { error: "That submission is no longer waiting for review." };
+  const resource = kind === "book" ? await getBookForStaff(id) : await getPaperForStaff(id);
+  const title = resource?.title ?? `your ${kind}`;
+  const href = kind === "book" ? `/books/${id}` : `/research/${id}`;
+  if (resource?.submittedBy) {
+    await notifyUsers([resource.submittedBy], {
+      title: "Your submission was published",
+      message: `“${title}” is now available in the library.`,
+      href,
+      kind: "author",
+    });
+  }
+  await notifyReaders({ title: "New in the library", message: `“${title}” is now available to read.`, href });
   await recordActivity({ actorId: member._id, action: "resource.published", targetKind: kind, targetId: id, detail: `Published ${kind}` });
 
   revalidatePublic();
@@ -155,6 +170,15 @@ export async function rejectResourceAction(_prev: CatalogState, formData: FormDa
 
   const rejected = kind === "book" ? await rejectBook(id, reviewNote) : await rejectPaper(id, reviewNote);
   if (!rejected) return { error: "That submission is no longer waiting for review." };
+  const resource = kind === "book" ? await getBookForStaff(id) : await getPaperForStaff(id);
+  if (resource?.submittedBy) {
+    await notifyUsers([resource.submittedBy], {
+      title: "Your submission needs changes",
+      message: `“${resource.title}” was returned with a review note: ${reviewNote}`,
+      href: "/author",
+      kind: "author",
+    });
+  }
   await recordActivity({ actorId: member._id, action: "resource.rejected", targetKind: kind, targetId: id, detail: `Rejected ${kind}` });
 
   revalidatePublic();
@@ -281,6 +305,8 @@ export async function manageMemberAction(
     const membershipExpiresAt = await grantMembership(memberId);
     if (!membershipExpiresAt) return { error: "Membership could not be updated." };
     await recordActivity({ actorId: admin._id, action: "member.membership_granted", targetKind: "member", targetId: memberId, detail: "Granted or renewed membership" });
+    await notifyUsers([memberId], { title: "Membership updated", message: `Your library membership is active through ${membershipExpiresAt}.`, href: "/membership", kind: "reader" });
+    await notifyAdmins({ title: "Membership updated", message: `${admin.name} granted or renewed a member’s access.`, href: "/admin" }, admin._id);
     revalidatePath("/admin");
     revalidatePath("/membership");
     return { success: `Membership active through ${membershipExpiresAt}.` };
@@ -291,6 +317,8 @@ export async function manageMemberAction(
     const updated = await setMemberAuthor(memberId, enabled);
     if (!updated) return { error: "That member could not be found." };
     await recordActivity({ actorId: admin._id, action: enabled ? "member.author_granted" : "member.author_removed", targetKind: "member", targetId: memberId, detail: enabled ? "Granted author access" : "Removed author access" });
+    await notifyUsers([memberId], { title: enabled ? "Author access granted" : "Author access removed", message: enabled ? "You can now submit books and papers for review." : "Your account no longer has author submission access.", href: enabled ? "/author" : "/", kind: enabled ? "author" : "reader" });
+    await notifyAdmins({ title: "Member roles updated", message: `${admin.name} ${enabled ? "granted" : "removed"} author access.`, href: "/admin" }, admin._id);
     revalidatePath("/admin");
     revalidatePath("/author");
     return { success: enabled ? "Author access granted." : "Author access removed." };
@@ -303,6 +331,8 @@ export async function manageMemberAction(
     if (result === "not-found") return { error: "That member could not be found." };
     if (result === "last-admin") return { error: "The last active admin cannot be demoted." };
     await recordActivity({ actorId: admin._id, action: enabled ? "member.admin_granted" : "member.admin_removed", targetKind: "member", targetId: memberId, detail: enabled ? "Granted admin access" : "Removed admin access" });
+    await notifyUsers([memberId], { title: enabled ? "Admin access granted" : "Admin access removed", message: enabled ? "You now have access to library administration." : "Your account no longer has admin access.", href: enabled ? "/admin" : "/", kind: enabled ? "admin" : "reader" });
+    await notifyAdmins({ title: "Admin access updated", message: `${admin.name} ${enabled ? "promoted" : "demoted"} a member.`, href: "/admin" }, admin._id);
     revalidatePath("/admin");
     return { success: enabled ? "Admin access granted." : "Admin access removed." };
   }
@@ -316,6 +346,8 @@ export async function manageMemberAction(
     if (result === "not-found") return { error: "That member could not be found." };
     if (result === "last-admin") return { error: "The last active admin cannot be suspended." };
     await recordActivity({ actorId: admin._id, action: status === "Active" ? "member.unsuspended" : "member.suspended", targetKind: "member", targetId: memberId, detail: status === "Active" ? "Restored member access" : "Suspended member" });
+    if (status === "Active") await notifyUsers([memberId], { title: "Library access restored", message: "Your account is active again.", href: "/", kind: "reader" });
+    await notifyAdmins({ title: "Member access updated", message: `${admin.name} ${status === "Active" ? "restored" : "suspended"} a member account.`, href: "/admin" }, admin._id);
     revalidatePath("/admin");
     return { success: status === "Active" ? "Member unsuspended." : "Member suspended." };
   }

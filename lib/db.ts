@@ -1,7 +1,7 @@
 import "server-only";
 
 import { GridFSBucket, MongoClient, ObjectId, type Collection, type Db, type Document } from "mongodb";
-import type { ActivityLogRecord, Book, MemberRecord, MonthlyReads, ResearchPaper, ResourceRating } from "@/lib/types";
+import type { ActivityLogRecord, Book, MemberRecord, MonthlyReads, NotificationRecord, ResearchPaper, ResourceRating } from "@/lib/types";
 
 const dbName = process.env.MONGODB_DB ?? "nextgen-library";
 
@@ -20,7 +20,13 @@ function getUri() {
 function getClientPromise() {
   const globalMongo = globalThis as GlobalMongo;
   if (!globalMongo._mongoClientPromise) {
-    globalMongo._mongoClientPromise = new MongoClient(getUri()).connect();
+    const connection = new MongoClient(getUri()).connect();
+    globalMongo._mongoClientPromise = connection.catch((error: unknown) => {
+      // A transient DNS/TLS/network failure must not leave a rejected promise
+      // cached for the rest of the development server's lifetime.
+      globalMongo._mongoClientPromise = undefined;
+      throw error;
+    });
   }
   return globalMongo._mongoClientPromise;
 }
@@ -109,6 +115,7 @@ export async function collections() {
     members: db.collection<MemberRecord>("members") as Collection<MemberRecord>,
     monthlyReads: db.collection<MonthlyReads>("monthlyReads") as Collection<MonthlyReads>,
     activityLogs: db.collection<ActivityLogRecord>("activityLogs") as Collection<ActivityLogRecord>,
+    notifications: db.collection<NotificationRecord>("notifications") as Collection<NotificationRecord>,
     ratings: db.collection<ResourceRating>("ratings") as Collection<ResourceRating>,
   };
 }

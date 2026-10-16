@@ -25,11 +25,11 @@ export default async function MembershipPage() {
       <div className="mt-9 grid items-stretch gap-5 md:grid-cols-2">
         <section
           aria-labelledby="free-plan-title"
-          className={`relative flex min-h-full flex-col overflow-hidden rounded-xl border bg-white ${!active ? "border-emerald-500 ring-2 ring-emerald-100" : "border-line"}`}
+          className={`relative flex min-h-full flex-col overflow-hidden rounded-xl border bg-white ${!active ? "border-emerald-500 ring-2 ring-emerald-900/30" : "border-line"}`}
         >
-          <div className="border-b border-line bg-[#edf5f8] px-6 py-6 sm:px-7">
+          <div className="border-b border-line bg-[#191a1c] px-6 py-6 sm:px-7">
             <div className="flex items-start justify-between gap-3">
-              <span className="flex size-11 items-center justify-center rounded-lg bg-white text-[#28667a] ring-1 ring-[#cbdfe5]">
+              <span className="flex size-11 items-center justify-center rounded-lg bg-[#252628] text-[#d6d6d6] ring-1 ring-[#3a3b3d]">
                 <BookOpen className="size-5" aria-hidden="true" />
               </span>
               {!active ? <CurrentPlanBadge /> : null}
@@ -65,11 +65,11 @@ export default async function MembershipPage() {
 
         <section
           aria-labelledby="membership-plan-title"
-          className={`relative flex min-h-full flex-col overflow-hidden rounded-xl border bg-white ${active ? "border-[#c99a24] ring-2 ring-[#f5e8c2]" : "border-line"}`}
+          className={`relative flex min-h-full flex-col overflow-hidden rounded-xl border bg-white ${active ? "border-[#e50914] ring-2 ring-[#e50914]/20" : "border-line"}`}
         >
-          <div className="border-b border-[#eadcad] bg-[#fbf6e8] px-6 py-6 sm:px-7">
+          <div className="border-b border-[#4a2023] bg-[#231518] px-6 py-6 sm:px-7">
             <div className="flex items-start justify-between gap-3">
-              <span className="flex size-11 items-center justify-center rounded-lg bg-white text-[#8b6511] ring-1 ring-[#eadcad]">
+              <span className="flex size-11 items-center justify-center rounded-lg bg-[#31181b] text-[#ff686e] ring-1 ring-[#5a2529]">
                 <Crown className="size-5" aria-hidden="true" />
               </span>
               {active ? <CurrentPlanBadge /> : null}

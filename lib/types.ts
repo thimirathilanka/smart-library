@@ -124,6 +124,8 @@ export type LibraryItem = {
   savedAt?: string;
   lastReadAt?: string;
   progress?: number;
+  bookmarkPage?: number;
+  totalPages?: number;
 };
 
 export type UserLibrary = {
@@ -170,6 +172,27 @@ export type ActivityLogEntry = {
   targetId?: string;
   detail: string;
   createdAt: string;
+};
+
+export type NotificationRecord = {
+  _id?: import("mongodb").ObjectId;
+  userId: string;
+  title: string;
+  message: string;
+  href: string;
+  kind: "admin" | "author" | "reader";
+  createdAt: Date;
+  readAt?: Date;
+};
+
+export type NotificationEntry = {
+  id: string;
+  title: string;
+  message: string;
+  href: string;
+  kind: "admin" | "author" | "reader";
+  createdAt: string;
+  read: boolean;
 };
 
 export type PopularResource = {

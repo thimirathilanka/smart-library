@@ -7,6 +7,17 @@ import { recordActivity } from "@/lib/data/activity";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
+  logger: {
+    error(error) {
+      // Auth.js deletes a session cookie it cannot decrypt. This commonly follows
+      // a local secret change, so keep the app usable while requiring a fresh login.
+      if ("type" in error && error.type === "JWTSessionError") {
+        console.warn("[auth] An invalid session cookie was cleared. Sign in again to continue.");
+        return;
+      }
+      console.error(error);
+    },
+  },
   providers: [
     Credentials({
       credentials: {

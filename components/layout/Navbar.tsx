@@ -7,8 +7,10 @@ import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/format";
 import { signOutAction } from "@/app/actions/auth";
 import type { SessionUser } from "@/lib/types";
+import { NotificationPopover } from "@/components/layout/NotificationPopover";
+import type { NotificationEntry } from "@/lib/types";
 
-export function Navbar({ user }: { user: SessionUser | null }) {
+export function Navbar({ user, unreadNotifications = 0, notifications = [] }: { user: SessionUser | null; unreadNotifications?: number; notifications?: NotificationEntry[] }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -33,15 +35,22 @@ export function Navbar({ user }: { user: SessionUser | null }) {
   }
 
   return (
-    <header className="glass-nav sticky top-0 z-40">
+    <header
+      className={cn(
+        "sticky top-0 z-40 transition-colors",
+        pathname === "/"
+          ? "border-b border-white/10 bg-[#101311]/95 text-white backdrop-blur-xl"
+          : "glass-nav",
+      )}
+    >
       <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-3 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-2 text-navy">
-          <span className="flex size-9 items-center justify-center rounded-lg bg-navy text-white">
+        <Link href="/" className={cn("flex items-center gap-2", pathname === "/" ? "text-white" : "text-navy")}>
+          <span className={cn("flex size-9 items-center justify-center rounded-lg", pathname === "/" ? "bg-white/10 text-white" : "bg-navy text-white")}>
             <BookOpen className="size-4" />
           </span>
           <span className="leading-tight">
             <span className="block font-serif text-lg">Nextgen</span>
-            <span className="-mt-0.5 block text-[10px] tracking-[0.22em] text-muted uppercase">
+            <span className={cn("-mt-0.5 block text-[10px] tracking-[0.22em] uppercase", pathname === "/" ? "text-white/45" : "text-muted")}>
               Digital Library
             </span>
           </span>
@@ -60,8 +69,12 @@ export function Navbar({ user }: { user: SessionUser | null }) {
                 className={cn(
                   "rounded-full px-3 py-1.5 text-sm transition",
                   active
-                    ? "bg-navy text-white"
-                    : "text-navy-mid hover:bg-navy/6",
+                    ? pathname === "/"
+                      ? "bg-white/10 text-white"
+                      : "bg-navy text-white"
+                    : pathname === "/"
+                      ? "text-white/65 hover:bg-white/10 hover:text-white"
+                      : "text-navy-mid hover:bg-navy/6",
                 )}
               >
                 {link.label}
@@ -77,22 +90,30 @@ export function Navbar({ user }: { user: SessionUser | null }) {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search the collection…"
-              className="w-full rounded-full border border-line bg-white/80 py-2 pr-4 pl-10 text-sm outline-none transition focus:border-navy-soft focus:ring-2 focus:ring-navy/10"
+              className={cn(
+                "w-full rounded-full border py-2 pr-4 pl-10 text-sm outline-none transition",
+                pathname === "/"
+                  ? "border-white/15 bg-white/[0.06] text-white placeholder:text-white/40 focus:border-white/35 focus:ring-2 focus:ring-white/10"
+                  : "border-line bg-white/80 focus:border-navy-soft focus:ring-2 focus:ring-navy/10",
+              )}
             />
           </label>
         </form>
 
         <div className="ml-auto flex items-center gap-3 md:ml-0">
           {user ? (
-            <AccountMenu user={user} />
+            <>
+              <NotificationPopover notifications={notifications} unreadCount={unreadNotifications} />
+              <AccountMenu user={user} />
+            </>
           ) : (
             <div className="hidden items-center gap-2 sm:flex">
-              <Link href="/login" className="text-sm text-navy-mid hover:text-navy">
+              <Link href="/login" className={cn("text-sm", pathname === "/" ? "text-white/70 hover:text-white" : "text-navy-mid hover:text-navy")}>
                 Sign in
               </Link>
               <Link
                 href="/register"
-                className="rounded-full bg-navy px-3 py-1.5 text-sm text-white hover:bg-navy-mid"
+                className={cn("rounded-full px-3 py-1.5 text-sm", pathname === "/" ? "bg-[#f3f3f1] text-[#151715] hover:bg-[#dededb]" : "bg-navy text-white hover:bg-navy-mid")}
               >
                 Register
               </Link>
@@ -100,7 +121,7 @@ export function Navbar({ user }: { user: SessionUser | null }) {
           )}
           <button
             type="button"
-            className="rounded-lg p-2 text-navy lg:hidden"
+            className={cn("rounded-lg p-2 lg:hidden", pathname === "/" ? "text-white" : "text-navy")}
             onClick={() => setOpen((value) => !value)}
             aria-label="Toggle menu"
           >
@@ -110,13 +131,16 @@ export function Navbar({ user }: { user: SessionUser | null }) {
       </div>
 
       {open ? (
-        <div className="border-t border-line bg-white/95 px-4 py-4 lg:hidden">
+        <div className={cn("border-t px-4 py-4 lg:hidden", pathname === "/" ? "border-white/10 bg-[#101311]/98" : "border-line bg-white/95")}>
           <form onSubmit={submitSearch} className="mb-4">
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search the collection…"
-              className="w-full rounded-full border border-line px-4 py-2 text-sm outline-none"
+              className={cn(
+                "w-full rounded-full border px-4 py-2 text-sm outline-none",
+                pathname === "/" ? "border-white/15 bg-white/[0.06] text-white placeholder:text-white/40" : "border-line bg-white",
+              )}
             />
           </form>
           <div className="flex flex-col gap-1">
@@ -125,17 +149,17 @@ export function Navbar({ user }: { user: SessionUser | null }) {
                 key={link.href}
                 href={link.href}
                 onClick={() => setOpen(false)}
-                className="rounded-lg px-3 py-2 text-sm text-navy hover:bg-paper"
+                className={cn("rounded-lg px-3 py-2 text-sm", pathname === "/" ? "text-white/80 hover:bg-white/10" : "text-navy hover:bg-paper")}
               >
                 {link.label}
               </Link>
             ))}
             {!user ? (
               <>
-                <Link href="/login" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm text-navy hover:bg-paper">
+                <Link href="/login" onClick={() => setOpen(false)} className={cn("rounded-lg px-3 py-2 text-sm", pathname === "/" ? "text-white/80 hover:bg-white/10" : "text-navy hover:bg-paper")}>
                   Sign in
                 </Link>
-                <Link href="/register" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm text-navy hover:bg-paper">
+                <Link href="/register" onClick={() => setOpen(false)} className={cn("rounded-lg px-3 py-2 text-sm", pathname === "/" ? "text-white/80 hover:bg-white/10" : "text-navy hover:bg-paper")}>
                   Register
                 </Link>
               </>

@@ -64,7 +64,7 @@ export function ReadAccessLink({
         aria-labelledby="members-only-title"
         aria-describedby="members-only-description"
       >
-        <div className="relative h-full overflow-y-auto bg-[#f3efe6]">
+        <div className="reading-theme relative h-full overflow-y-auto bg-[#f3efe6]">
           <article
             aria-hidden="true"
             className="pointer-events-none mx-auto min-h-full max-w-2xl bg-[#fbf7ee] px-7 py-9 blur-[3px] sm:px-12 sm:py-12"

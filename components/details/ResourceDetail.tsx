@@ -135,7 +135,7 @@ export function PaperDetail({
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
+        <div className="paper-preview overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
           <div className="border-b border-line bg-paper px-6 py-4 text-xs tracking-[0.18em] text-muted uppercase">
             In-browser preview
           </div>

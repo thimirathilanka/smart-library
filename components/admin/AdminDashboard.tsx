@@ -219,13 +219,13 @@ function AnalyticsPanel({
           <div className="mt-4 h-72">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={monthlyReads}>
-                <CartesianGrid stroke="#e2e8f0" vertical={false} />
-                <XAxis dataKey="month" tick={{ fill: "#5b6778", fontSize: 12 }} />
-                <YAxis tick={{ fill: "#5b6778", fontSize: 12 }} />
-                <Tooltip />
+                <CartesianGrid stroke="#35373a" vertical={false} />
+                <XAxis dataKey="month" tick={{ fill: "#a1a1a1", fontSize: 12 }} />
+                <YAxis tick={{ fill: "#a1a1a1", fontSize: 12 }} />
+                <Tooltip contentStyle={{ backgroundColor: "#1b1c1f", borderColor: "#35373a", color: "#f3f3f1" }} />
                 <Legend />
-                <Line type="monotone" dataKey="books" stroke="#0b1f3a" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="papers" stroke="#2c5282" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="books" stroke="#e50914" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="papers" stroke="#52d6c8" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -239,11 +239,11 @@ function AnalyticsPanel({
           <div className="mt-4 h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={popularResources} layout="vertical" margin={{ left: 24 }}>
-                <CartesianGrid stroke="#e2e8f0" horizontal={false} />
-                <XAxis type="number" tick={{ fill: "#5b6778", fontSize: 12 }} />
-                <YAxis type="category" dataKey="title" width={180} tick={{ fill: "#1a2332", fontSize: 11 }} />
-                <Tooltip />
-                <Bar dataKey="reads" fill="#1b365d" radius={[0, 6, 6, 0]} />
+                <CartesianGrid stroke="#35373a" horizontal={false} />
+                <XAxis type="number" tick={{ fill: "#a1a1a1", fontSize: 12 }} />
+                <YAxis type="category" dataKey="title" width={180} tick={{ fill: "#d0d0d0", fontSize: 11 }} />
+                <Tooltip contentStyle={{ backgroundColor: "#1b1c1f", borderColor: "#35373a", color: "#f3f3f1" }} />
+                <Bar dataKey="reads" fill="#e50914" radius={[0, 6, 6, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

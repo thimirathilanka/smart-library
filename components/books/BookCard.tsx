@@ -46,16 +46,17 @@ export function BookCard({
   return (
     <Link
       href={`/books/${book._id}`}
-      className={cn(
-        "group flex flex-col rounded-2xl border border-line bg-white p-3 shadow-sm transition hover:-translate-y-1 hover:border-navy/20 hover:shadow-lg",
-      )}
+      className={cn("group flex flex-col transition")}
     >
-      <BookCover book={book} />
-      <div className="flex flex-1 flex-col px-1 pt-3 pb-1">
-        <p className="text-[11px] font-medium tracking-wide text-navy-soft uppercase">
+      <BookCover
+        book={book}
+        className="rounded-[2px] shadow-[0_18px_36px_-18px_rgba(0,0,0,.85)] transition duration-300 group-hover:-translate-y-1 group-hover:shadow-[0_24px_42px_-18px_rgba(0,0,0,.95)]"
+      />
+      <div className="flex flex-1 flex-col pt-3">
+        <p className="text-[10px] font-medium tracking-[0.14em] text-navy-soft uppercase">
           {book.category}
         </p>
-        <h3 className="mt-1 line-clamp-2 font-serif text-lg leading-snug text-navy">
+        <h3 className="mt-1 line-clamp-2 min-h-12 font-serif text-lg leading-snug text-navy">
           {book.title}
         </h3>
         <p className="mt-1 text-sm text-muted">{book.author}</p>
