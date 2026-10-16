@@ -14,8 +14,10 @@ export async function generateMetadata({ params }: PageProps<"/books/[id]/read">
 
 export default async function BookReaderPage({
   params,
+  searchParams,
 }: PageProps<"/books/[id]/read">) {
   const { id } = await params;
+  const query = await searchParams;
   const book = await getBook(id);
   if (!book) notFound();
   const session = await auth();
@@ -30,6 +32,10 @@ export default async function BookReaderPage({
     }
   }
 
+  const savedPage = member?.library?.history?.find((item) => item.kind === "book" && item.resourceId === book._id)?.bookmarkPage;
+  const requestedPage = Number(query.page);
+  const initialPage = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : savedPage ?? 1;
+
   return (
     <>
       <TrackRead kind="book" id={book._id} />
@@ -38,9 +44,19 @@ export default async function BookReaderPage({
         kicker={`${book.publisher} · ${book.year}`}
         title={book.title}
         byline={book.author}
+        showBackLink={!book.fileId}
       >
         {book.fileId ? (
-          <PdfPageViewer src={`/api/books/${book._id}/file`} title={book.title} />
+          <PdfPageViewer
+            src={`/api/books/${book._id}/file`}
+            title={book.title}
+            kind="book"
+            resourceId={book._id}
+            backHref={`/books/${book._id}`}
+            initialPage={initialPage}
+            initialBookmarkPage={savedPage}
+            isSignedIn={Boolean(session?.user?.id && member?.status === "Active")}
+          />
         ) : (
           <>
             <p>{book.description}</p>

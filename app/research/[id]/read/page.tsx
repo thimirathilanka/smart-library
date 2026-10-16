@@ -16,8 +16,10 @@ export async function generateMetadata({
 
 export default async function PaperReaderPage({
   params,
+  searchParams,
 }: PageProps<"/research/[id]/read">) {
   const { id } = await params;
+  const query = await searchParams;
   const paper = await getPaper(id);
   if (!paper) notFound();
   const session = await auth();
@@ -32,6 +34,10 @@ export default async function PaperReaderPage({
     }
   }
 
+  const savedPage = member?.library?.history?.find((item) => item.kind === "paper" && item.resourceId === paper._id)?.bookmarkPage;
+  const requestedPage = Number(query.page);
+  const initialPage = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : savedPage ?? 1;
+
   return (
     <>
       <TrackRead kind="paper" id={paper._id} />
@@ -40,9 +46,19 @@ export default async function PaperReaderPage({
         kicker={`${paper.venue} · ${paper.year}`}
         title={paper.title}
         byline={paper.authors.join(", ")}
+        showBackLink={!paper.fileId}
       >
         {paper.fileId ? (
-          <PdfPageViewer src={`/api/research/${paper._id}/file`} title={paper.title} />
+          <PdfPageViewer
+            src={`/api/research/${paper._id}/file`}
+            title={paper.title}
+            kind="paper"
+            resourceId={paper._id}
+            backHref={`/research/${paper._id}`}
+            initialPage={initialPage}
+            initialBookmarkPage={savedPage}
+            isSignedIn={Boolean(session?.user?.id && member?.status === "Active")}
+          />
         ) : (
           <>
             <p>

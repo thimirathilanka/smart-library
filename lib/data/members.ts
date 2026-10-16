@@ -134,9 +134,11 @@ export async function recordReading(memberId: string, resourceId: string, kind: 
     resourceId,
     kind,
     lastReadAt: todayIso(),
-    progress: existing?.progress ? Math.min(100, existing.progress + 8) : 12,
+    ...(existing?.bookmarkPage && existing.totalPages
+      ? { bookmarkPage: existing.bookmarkPage, totalPages: existing.totalPages, progress: existing.progress }
+      : {}),
   };
-  const nextHistory = [nextItem, ...history.filter((item) => item.resourceId !== resourceId)];
+  const nextHistory = [nextItem, ...history.filter((item) => item.resourceId !== resourceId || item.kind !== kind)];
 
   await members.updateOne(
     { _id: memberId },
@@ -145,6 +147,55 @@ export async function recordReading(memberId: string, resourceId: string, kind: 
       $inc: { reads: 1 },
     },
   );
+}
+
+export async function saveReadingBookmark(
+  memberId: string,
+  resourceId: string,
+  kind: ResourceKind,
+  page: number,
+  totalPages: number,
+) {
+  const { members } = await collections();
+  const member = await members.findOne({ _id: memberId });
+  if (!member) return null;
+
+  const history = member.library?.history ?? [];
+  const existing = history.find((item) => item.resourceId === resourceId && item.kind === kind);
+  const progress = Math.min(100, Math.round((page / totalPages) * 100));
+  const nextItem: LibraryItem = {
+    ...existing,
+    resourceId,
+    kind,
+    lastReadAt: todayIso(),
+    bookmarkPage: page,
+    totalPages,
+    progress,
+  };
+  const nextHistory = [nextItem, ...history.filter((item) => item.resourceId !== resourceId || item.kind !== kind)];
+  await members.updateOne(
+    { _id: memberId },
+    { $set: { library: { ...emptyLibrary, ...member.library, history: nextHistory } } },
+  );
+  return { page, totalPages, progress };
+}
+
+export async function removeReadingBookmark(memberId: string, resourceId: string, kind: ResourceKind) {
+  const { members } = await collections();
+  const member = await members.findOne({ _id: memberId });
+  if (!member) return false;
+
+  const history = member.library?.history ?? [];
+  const nextHistory = history.map((item) => {
+    if (item.resourceId !== resourceId || item.kind !== kind) return item;
+    const { bookmarkPage: _bookmarkPage, totalPages: _totalPages, progress: _progress, ...withoutBookmark } = item;
+    return withoutBookmark;
+  });
+  await members.updateOne(
+    { _id: memberId },
+    { $set: { library: { ...emptyLibrary, ...member.library, history: nextHistory } } },
+  );
+  return true;
 }
 
 export async function toggleLibraryList(

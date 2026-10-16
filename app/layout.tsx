@@ -3,6 +3,8 @@ import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { auth } from "@/auth";
+import { countUnreadNotifications, listNotifications } from "@/lib/data/notifications";
+import type { NotificationEntry } from "@/lib/types";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -33,6 +35,14 @@ export const dynamic = "force-dynamic";
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const session = await auth();
+  let unreadNotifications = 0;
+  let notifications: NotificationEntry[] = [];
+  if (session?.user?.id) {
+    [unreadNotifications, notifications] = await Promise.all([
+      countUnreadNotifications(session.user.id),
+      listNotifications(session.user.id, 8),
+    ]);
+  }
   const user = session?.user
     ? {
         id: session.user.id,
@@ -49,8 +59,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${sourceSerif.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col bg-paper font-sans text-ink">
-        <Navbar user={user} />
+      <body className="dark-interface flex min-h-full flex-col bg-paper font-sans text-ink">
+        <Navbar user={user} unreadNotifications={unreadNotifications} notifications={notifications} />
         <main className="flex-1">{children}</main>
         <Footer />
       </body>

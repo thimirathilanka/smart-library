@@ -31,6 +31,7 @@ import {
 } from "@/lib/data/papers";
 import { discardGridFsFiles } from "@/lib/db";
 import { recordActivity } from "@/lib/data/activity";
+import { notifyAdmins } from "@/lib/data/notifications";
 import type { ResourceKind } from "@/lib/types";
 
 export type CatalogState = {
@@ -80,6 +81,7 @@ export async function submitResourceAction(_prev: CatalogState, formData: FormDa
       return { error: "The paper could not be submitted. Please try again." };
     }
     await recordActivity({ actorId: member._id, action: "author.resource_submitted", targetKind: "paper", targetId: draft.paper._id, detail: `Submitted paper: ${draft.paper.title}` });
+    await notifyAdmins({ title: "New paper to review", message: `${member.name} submitted “${draft.paper.title}”.`, href: "/admin" }, member._id);
     summaryWarning = await storeSummary("paper", draft.paper._id, draft.paper.title, draft.paper.abstract);
   } else {
     try {
@@ -93,6 +95,7 @@ export async function submitResourceAction(_prev: CatalogState, formData: FormDa
       return { error: "The book could not be submitted. Please try again." };
     }
     await recordActivity({ actorId: member._id, action: "author.resource_submitted", targetKind: "book", targetId: draft.book._id, detail: `Submitted book: ${draft.book.title}` });
+    await notifyAdmins({ title: "New book to review", message: `${member.name} submitted “${draft.book.title}”.`, href: "/admin" }, member._id);
     summaryWarning = await storeSummary("book", draft.book._id, draft.book.title, draft.book.description);
   }
 
@@ -131,6 +134,7 @@ export async function resubmitResourceAction(_prev: CatalogState, formData: Form
     return { error: "Only your unpublished submission can be edited and sent for review." };
   }
   await recordActivity({ actorId: member._id, action: "author.resource_resubmitted", targetKind: parsed.kind, targetId: id, detail: `Resubmitted ${parsed.kind}: ${parsed.edits.title}` });
+  await notifyAdmins({ title: "Submission resubmitted", message: `${member.name} updated “${parsed.edits.title}” for review.`, href: "/admin" }, member._id);
 
   const summaryWarning = await storeSummary(
     parsed.kind,
@@ -171,6 +175,7 @@ export async function submitRevisionAction(_prev: CatalogState, formData: FormDa
     return { error: "Only a published title you submitted can get a new version." };
   }
   await recordActivity({ actorId: member._id, action: "author.revision_submitted", targetKind: parsed.kind, targetId: id, detail: `Submitted a new version of ${parsed.kind}: ${parsed.edits.title}` });
+  await notifyAdmins({ title: "New version to review", message: `${member.name} submitted a new version of “${parsed.edits.title}”.`, href: "/admin" }, member._id);
 
   const summaryWarning = await storeRevisionSummary(
     parsed.kind,

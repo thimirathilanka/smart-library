@@ -1,27 +1,31 @@
 @import "tailwindcss";
 
 :root {
-  --navy: #0b1f3a;
-  --navy-mid: #1b365d;
-  --navy-soft: #2c5282;
-  --gold: #c9a227;
-  --paper: #f6f8fb;
-  --ink: #1a2332;
-  --muted: #5b6778;
-  --line: #e2e8f0;
-  --background: #f6f8fb;
-  --foreground: #1a2332;
+  --navy: #e50914;
+  --navy-mid: #b20710;
+  --navy-soft: #ef555d;
+  --gold: #e50914;
+  --paper: #101112;
+  --ink: #f3f3f1;
+  --muted: #a1a1a1;
+  --line: #303234;
+  --background: #101112;
+  --foreground: #f3f3f1;
+  --surface: #1b1c1f;
+  --surface-raised: #242528;
+  --reading-paper: #f6f3eb;
+  --reading-ink: #1a2332;
 }
 
 @theme inline {
-  --color-navy: #0b1f3a;
-  --color-navy-mid: #1b365d;
-  --color-navy-soft: #2c5282;
-  --color-gold: #c9a227;
-  --color-paper: #f6f8fb;
-  --color-ink: #1a2332;
-  --color-muted: #5b6778;
-  --color-line: #e2e8f0;
+  --color-navy: var(--navy);
+  --color-navy-mid: var(--navy-mid);
+  --color-navy-soft: var(--navy-soft);
+  --color-gold: var(--gold);
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
@@ -39,15 +43,99 @@ body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
+.dark-interface {
+  color-scheme: dark;
+}
+
+.dark-interface .text-navy {
+  color: var(--ink);
+}
+
+.dark-interface .text-navy-mid {
+  color: #d0d0d0;
+}
+
+.dark-interface .text-navy-soft {
+  color: #a9abad;
+}
+
+.dark-interface .paper-preview .text-navy,
+.dark-interface .reading-theme .text-navy {
+  color: var(--navy);
+}
+
+.dark-interface .paper-preview .text-navy-mid,
+.dark-interface .reading-theme .text-navy-mid {
+  color: var(--navy-mid);
+}
+
+.dark-interface .paper-preview .text-navy-soft,
+.dark-interface .reading-theme .text-navy-soft {
+  color: var(--navy-soft);
+}
+
+.dark-interface [class~="bg-white"],
+.dark-interface [class~="bg-white/40"],
+.dark-interface [class~="bg-white/60"],
+.dark-interface [class~="bg-white/70"],
+.dark-interface [class~="bg-white/80"],
+.dark-interface [class~="bg-white/90"],
+.dark-interface [class~="bg-white/95"] {
+  background-color: var(--surface);
+}
+
+.dark-interface canvas.bg-white {
+  background-color: #fff;
+}
+
+.dark-interface input[type="file"]::file-selector-button {
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--surface-raised);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.dark-interface input[type="file"]::file-selector-button:hover {
+  background: #303135;
+}
+
+.dark-interface .paper-preview {
+  --paper: #f6f3eb;
+  --ink: #1a2332;
+  --muted: #5b6778;
+  --line: #e2e8f0;
+  --navy: #0b1f3a;
+  --navy-mid: #1b365d;
+  --navy-soft: #2c5282;
+  background-color: #fbf7ee;
+  color: #1a2332;
+  color-scheme: light;
+}
+
+.reading-theme {
+  --paper: #f6f3eb;
+  --ink: #1a2332;
+  --muted: #5b6778;
+  --line: #e2e8f0;
+  --navy: #0b1f3a;
+  --navy-mid: #1b365d;
+  --navy-soft: #2c5282;
+  --gold: #c9a227;
+  background: var(--reading-paper);
+  color: var(--reading-ink);
+  color-scheme: light;
+}
+
 ::selection {
   background: #1b365d;
   color: #fff;
 }
 
 .glass-nav {
-  background: color-mix(in srgb, white 78%, transparent);
+  background: color-mix(in srgb, #101112 94%, transparent);
   backdrop-filter: blur(18px);
-  border-bottom: 1px solid color-mix(in srgb, #0b1f3a 8%, transparent);
+  border-bottom: 1px solid rgb(255 255 255 / 10%);
 }
 
 .hero-grid {
@@ -120,7 +208,7 @@ body {
   flex-direction: column;
   margin: 0;
   padding: 1rem;
-  background: var(--paper);
+  background: var(--reading-paper);
 }
 
 .reader-fullscreen-stage {
