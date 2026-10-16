@@ -59,6 +59,33 @@ body {
   color: #a9abad;
 }
 
+.dark-interface .reader-theme {
+  --navy: #0b1f3a;
+  --navy-mid: #1b365d;
+  --navy-soft: #2c5282;
+  --gold: #c9a227;
+  --paper: #f6f8fb;
+  --ink: #1a2332;
+  --muted: #5b6778;
+  --line: #e2e8f0;
+  --surface: #fff;
+  --surface-raised: #fff;
+  color: #1a2332;
+  color-scheme: light;
+}
+
+.dark-interface .reader-theme .text-navy-mid {
+  color: var(--navy-mid);
+}
+
+.dark-interface .reader-theme .text-navy-soft {
+  color: var(--navy-soft);
+}
+
+.dark-interface .reader-theme [class*="bg-white"] {
+  background-color: #fff;
+}
+
 .dark-interface .paper-preview .text-navy,
 .dark-interface .reading-theme .text-navy {
   color: var(--navy);

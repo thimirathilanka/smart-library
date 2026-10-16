@@ -15,7 +15,7 @@ export function FeaturedCarousel({ books }: { books: Book[] }) {
 
   return (
     <div className="relative">
-      <div className="absolute -top-12 right-0 flex gap-2">
+      <div className="mb-3 flex justify-end gap-2">
         <button
           type="button"
           onClick={() => scroll(-1)}
