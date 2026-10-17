@@ -41,6 +41,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           isMember: hasActiveMembership(member),
           isAdmin: Boolean(member.isAdmin),
           isAuthor: Boolean(member.isAuthor),
+          accountActive: true,
         };
       },
     }),

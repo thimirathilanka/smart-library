@@ -5,10 +5,18 @@ import { AuthError } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth, signIn, signOut } from "@/auth";
-import { incrementBookReads } from "@/lib/data/books";
-import { incrementMonthlyReads } from "@/lib/data/catalog";
-import { createMember, getMemberByEmail, recordReading, toggleLibraryList } from "@/lib/data/members";
-import { incrementPaperReads } from "@/lib/data/papers";
+import { getBook } from "@/lib/data/books";
+import {
+  createMember,
+  getMemberByEmail,
+  getMemberById,
+  hasActiveMembership,
+  isActiveAccount,
+  recordReading,
+  requireActiveAccount,
+  toggleLibraryList,
+} from "@/lib/data/members";
+import { getPaper } from "@/lib/data/papers";
 import { recordActivity } from "@/lib/data/activity";
 import { safeCallbackPath } from "@/lib/safe-callback";
 import type { ResourceKind } from "@/lib/types";
@@ -124,19 +132,21 @@ export async function signOutAction() {
 
 export async function trackReadAction(kind: ResourceKind, id: string) {
   if (!isResourceKind(kind) || !isResourceId(id)) return;
-  if (kind === "book") await incrementBookReads(id);
-  else await incrementPaperReads(id);
-  await incrementMonthlyReads(kind === "book" ? "books" : "papers");
+
+  const resource = kind === "book" ? await getBook(id) : await getPaper(id);
+  if (!resource) return;
 
   const session = await auth();
-  await recordActivity({
-    actorId: session?.user?.id ?? null,
-    action: "resource.read",
-    targetKind: kind,
-    targetId: id,
-    detail: `Read ${kind}`,
-  });
-  if (session?.user?.id) {
+  const member = session?.user?.id ? await getMemberById(session.user.id) : null;
+  if (member && !isActiveAccount(member)) return;
+
+  if (resource.access === "members") {
+    const isAdmin = Boolean(member && isActiveAccount(member) && member.isAdmin);
+    if (!isAdmin && !hasActiveMembership(member)) return;
+  }
+
+  // Read counts and activity are recorded on successful file open. TrackRead only keeps library history.
+  if (session?.user?.id && isActiveAccount(member)) {
     await recordReading(session.user.id, id, kind);
     revalidatePath("/library");
   }
@@ -146,6 +156,8 @@ export async function toggleLibraryAction(list: "saved" | "favorites", resourceI
   if ((list !== "saved" && list !== "favorites") || !isResourceId(resourceId) || !isResourceKind(kind)) return;
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  const member = await requireActiveAccount(session.user.id);
+  if (!member) return;
   const result = await toggleLibraryList(session.user.id, list, resourceId, kind);
   const verb = list === "saved" ? (result.added ? "saved" : "removed from saved") : (result.added ? "favorited" : "removed from favorites");
   await recordActivity({

@@ -29,6 +29,7 @@ export default async function BookPage({
   ]);
   const library = member?.library;
   const hasMembership = hasActiveMembership(member);
+  const isAdmin = Boolean(member?.status === "Active" && member.isAdmin);
 
   return (
     <BookDetail
@@ -36,6 +37,7 @@ export default async function BookPage({
       related={related}
       signedIn={Boolean(session?.user)}
       hasMembership={hasMembership}
+      isAdmin={isAdmin}
       promptLocked={query.locked === "1"}
       saved={library?.saved.some((item) => item.resourceId === book._id) ?? false}
       favorited={library?.favorites.some((item) => item.resourceId === book._id) ?? false}

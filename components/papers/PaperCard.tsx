@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FileText } from "lucide-react";
 import type { ResearchPaper } from "@/lib/types";
 import { AccessBadge } from "@/components/ui/AccessBadge";
+import { RatingStars } from "@/components/ui/RatingStars";
 import { formatDate, formatNumber } from "@/lib/format";
 
 export function PaperCard({ paper }: { paper: ResearchPaper }) {
@@ -30,6 +31,9 @@ export function PaperCard({ paper }: { paper: ResearchPaper }) {
             </Link>
           </h3>
           <p className="mt-2 text-sm text-navy-mid">{paper.authors.join(" · ")}</p>
+          <div className="mt-2">
+            <RatingStars rating={paper.rating ?? 0} count={paper.ratingsCount ?? 0} compact />
+          </div>
           <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted">{paper.abstract}</p>
           <div className="mt-4 flex flex-wrap gap-1.5">
             {paper.keywords.map((keyword) => (
@@ -48,11 +52,11 @@ export function PaperCard({ paper }: { paper: ResearchPaper }) {
               <span>{formatNumber(paper.citations)} citations</span>
             </div>
             <Link
-              href={`/research/${paper._id}/read`}
+              href={`/research/${paper._id}`}
               className="inline-flex items-center justify-center gap-2 rounded-full bg-navy px-4 py-2 text-sm font-medium text-white transition hover:bg-navy-mid"
             >
               <FileText className="size-4" />
-              Read online
+              View details
             </Link>
           </div>
         </div>

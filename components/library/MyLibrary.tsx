@@ -154,8 +154,11 @@ function LibraryRow({
   book?: Book;
   paper?: ResearchPaper;
 }) {
-  const href = book ? `/books/${book._id}` : paper ? `/research/${paper._id}` : "#";
-  const readHref = book ? `/books/${book._id}/read` : paper ? `/research/${paper._id}/read` : "#";
+  const removed = !book && !paper;
+  const href = book ? `/books/${book._id}` : paper ? `/research/${paper._id}` : null;
+  const readBase = book ? `/books/${book._id}/read` : paper ? `/research/${paper._id}/read` : null;
+  const readHref =
+    readBase && item.bookmarkPage ? `${readBase}?page=${item.bookmarkPage}` : readBase;
   const progress = item.bookmarkPage && item.totalPages
     ? Math.min(100, Math.round((item.bookmarkPage / item.totalPages) * 100))
     : undefined;
@@ -171,16 +174,22 @@ function LibraryRow({
       )}
       <div className="min-w-0 flex-1">
         <p className="text-[11px] tracking-wide text-navy-soft uppercase">{item.kind}</p>
-        <Link href={href} className="font-serif text-lg text-navy hover:text-navy-mid">
-          {book?.title ?? paper?.title}
-        </Link>
-        <p className="mt-1 text-sm text-muted">
-          {book?.author ?? paper?.authors.join(", ")}
-        </p>
+        {removed || !href ? (
+          <p className="font-serif text-lg text-muted">Removed from the catalog</p>
+        ) : (
+          <Link href={href} className="font-serif text-lg text-navy hover:text-navy-mid">
+            {book?.title ?? paper?.title}
+          </Link>
+        )}
+        {removed ? null : (
+          <p className="mt-1 text-sm text-muted">
+            {book?.author ?? paper?.authors.join(", ")}
+          </p>
+        )}
         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted">
           {item.savedAt ? <span>Saved {formatDate(item.savedAt)}</span> : null}
           {item.lastReadAt ? <span>Last read {formatDate(item.lastReadAt)}</span> : null}
-          {item.bookmarkPage != null && item.totalPages && progress != null ? (
+          {!removed && item.bookmarkPage != null && item.totalPages && progress != null ? (
             <span className="inline-flex items-center gap-2">
               {progress}%
               <span className="h-1.5 w-24 overflow-hidden rounded-full bg-line">
@@ -194,12 +203,14 @@ function LibraryRow({
           ) : null}
         </div>
       </div>
-      <Link
-        href={readHref}
-        className="hidden self-center rounded-full bg-navy px-4 py-2 text-sm text-white hover:bg-navy-mid sm:inline-flex"
-      >
-        {item.bookmarkPage ? `Continue · p. ${item.bookmarkPage}` : "Continue"}
-      </Link>
+      {readHref ? (
+        <Link
+          href={readHref}
+          className="inline-flex self-center rounded-full bg-navy px-4 py-2 text-sm text-white hover:bg-navy-mid"
+        >
+          {item.bookmarkPage ? `Continue · p. ${item.bookmarkPage}` : "Continue"}
+        </Link>
+      ) : null}
     </div>
   );
 }

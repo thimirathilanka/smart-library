@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { hasActiveMembership } from "@/lib/data/members";
 import { isResourceOwner, previewSession, storedFileResponse, wantsRevision } from "@/lib/data/media";
 import { getPaperForStaff } from "@/lib/data/papers";
+import { recordFileOpen } from "@/lib/data/reads";
 
 export const runtime = "nodejs";
 
@@ -29,6 +30,10 @@ export async function GET(
     if (!hasActiveMembership(member)) {
       return new NextResponse("Forbidden", { status: session?.user ? 403 : 401 });
     }
+  }
+
+  if (published && !ownerPreview) {
+    await recordFileOpen("paper", id, session?.user?.id ?? null, request);
   }
 
   return storedFileResponse(paper.fileId, `${paper.title}.pdf`, "application/pdf");

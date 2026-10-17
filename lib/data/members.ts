@@ -15,6 +15,16 @@ export function hasActiveMembership(
   return member.membershipExpiresAt >= new Date().toISOString().slice(0, 10);
 }
 
+export function isActiveAccount(member: Pick<Member, "status"> | null | undefined) {
+  return Boolean(member && member.status === "Active");
+}
+
+export async function requireActiveAccount(memberId: string) {
+  const member = await getMemberById(memberId);
+  if (!isActiveAccount(member)) return null;
+  return member;
+}
+
 export function publicMember(member: MemberRecord): Member {
   return {
     _id: member._id,

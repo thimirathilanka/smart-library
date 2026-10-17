@@ -267,6 +267,9 @@ async function applyBookRevision(book: Book) {
         category: revision.category,
         year: revision.year,
         isbn: revision.isbn,
+        publisher: revision.publisher ?? book.publisher,
+        pages: revision.pages ?? book.pages,
+        language: revision.language ?? book.language,
         access: revision.access,
         description: revision.description,
         publicationStatus: "published",
@@ -311,5 +314,6 @@ export async function setBookSummary(id: string, aiSummary: string) {
 
 export async function incrementBookReads(id: string) {
   const { books } = await collections();
-  await books.updateOne({ _id: id }, { $inc: { reads: 1 } });
+  const result = await books.updateOne(withPublished<Book>({ _id: id }), { $inc: { reads: 1 } });
+  return result.matchedCount > 0;
 }

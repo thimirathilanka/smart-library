@@ -17,6 +17,7 @@ export function BookDetail({
   related,
   signedIn = false,
   hasMembership = false,
+  isAdmin = false,
   promptLocked = false,
   saved = false,
   favorited = false,
@@ -27,13 +28,15 @@ export function BookDetail({
   related: Book[];
   signedIn?: boolean;
   hasMembership?: boolean;
+  isAdmin?: boolean;
   promptLocked?: boolean;
   saved?: boolean;
   favorited?: boolean;
   userRating?: number;
   pageCount?: number;
 }) {
-  const membersOnly = book.access === "members" && !hasMembership;
+  const canOpen = book.access === "open" || hasMembership || isAdmin;
+  const membersOnly = book.access === "members" && !canOpen;
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="grid gap-10 lg:grid-cols-[280px_1fr]">
@@ -42,7 +45,7 @@ export function BookDetail({
           <ReadAccessLink
             href={`/books/${book._id}/read`}
             requiresMembership={book.access === "members"}
-            hasMembership={hasMembership}
+            hasMembership={canOpen}
             signedIn={signedIn}
             openOnMount={promptLocked}
             preview={{
@@ -51,9 +54,6 @@ export function BookDetail({
               byline: book.author,
               paragraphs: [
                 { text: book.description },
-                {
-                  text: `This opening chapter sets the terms of the inquiry: what is at stake, which methods will carry the argument, and how later sections will return to evidence. ${book.author} writes with care for both specialists and readers coming to ${book.title.toLowerCase()} for the first time.`,
-                },
               ],
             }}
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-navy py-3 text-sm font-medium text-white hover:bg-navy-mid"
@@ -67,6 +67,7 @@ export function BookDetail({
             saved={saved}
             favorited={favorited}
             signedIn={signedIn}
+            callbackUrl={`/books/${book._id}`}
           />
         </div>
         <div>
@@ -84,7 +85,7 @@ export function BookDetail({
           </div>
           <ResourceRatingForm kind="book" resourceId={book._id} signedIn={signedIn} userRating={userRating} />
           <p className="mt-6 max-w-3xl text-base leading-8 text-muted">{book.description}</p>
-          {book.aiSummary ? (
+          {book.aiSummary && canOpen ? (
             <AiSummaryCallout summary={book.aiSummary} />
           ) : null}
           <dl className="mt-8 grid gap-4 rounded-2xl border border-line bg-white p-5 sm:grid-cols-2">
@@ -119,6 +120,7 @@ export function PaperDetail({
   related,
   signedIn = false,
   hasMembership = false,
+  isAdmin = false,
   promptLocked = false,
   saved = false,
   favorited = false,
@@ -128,12 +130,14 @@ export function PaperDetail({
   related: ResearchPaper[];
   signedIn?: boolean;
   hasMembership?: boolean;
+  isAdmin?: boolean;
   promptLocked?: boolean;
   saved?: boolean;
   favorited?: boolean;
   userRating?: number;
 }) {
-  const membersOnly = paper.access === "members" && !hasMembership;
+  const canOpen = paper.access === "open" || hasMembership || isAdmin;
+  const membersOnly = paper.access === "members" && !canOpen;
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
@@ -177,7 +181,7 @@ export function PaperDetail({
           <ReadAccessLink
             href={`/research/${paper._id}/read`}
             requiresMembership={paper.access === "members"}
-            hasMembership={hasMembership}
+            hasMembership={canOpen}
             signedIn={signedIn}
             openOnMount={promptLocked}
             preview={{
@@ -186,16 +190,6 @@ export function PaperDetail({
               byline: paper.authors.join(", "),
               paragraphs: [
                 { label: "Abstract.", text: paper.abstract },
-                {
-                  label: "1. Introduction.",
-                  text: `The authors situate the problem in ${paper.field.toLowerCase()} and outline the contribution that follows. Keywords: ${paper.keywords.join(", ")}.`,
-                },
-                {
-                  label: "2. Contribution.",
-                  text: paper.doi
-                    ? `Findings are reported under DOI ${paper.doi} and indexed with the venue record for ${paper.venue}.`
-                    : `Findings are indexed with the venue record for ${paper.venue}.`,
-                },
               ],
             }}
             className="mt-5 inline-flex items-center gap-2 rounded-full bg-navy px-5 py-2.5 text-sm font-medium text-white hover:bg-navy-mid"
@@ -209,6 +203,7 @@ export function PaperDetail({
             saved={saved}
             favorited={favorited}
             signedIn={signedIn}
+            callbackUrl={`/research/${paper._id}`}
           />
           <section className="mt-6">
             <h2 className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">
@@ -216,7 +211,7 @@ export function PaperDetail({
             </h2>
             <p className="mt-2 text-sm leading-7 text-muted">{paper.abstract}</p>
           </section>
-          {paper.aiSummary ? (
+          {paper.aiSummary && canOpen ? (
             <AiSummaryCallout summary={paper.aiSummary} />
           ) : null}
           <div className="mt-4 flex flex-wrap gap-1.5">

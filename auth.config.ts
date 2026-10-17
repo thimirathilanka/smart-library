@@ -11,8 +11,11 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request }) {
       const { pathname } = request.nextUrl;
-      const user = auth?.user as { isAdmin?: boolean; isAuthor?: boolean } | undefined;
+      const user = auth?.user as
+        | { isAdmin?: boolean; isAuthor?: boolean; accountActive?: boolean }
+        | undefined;
       const isLoggedIn = Boolean(auth?.user);
+      const accountActive = user?.accountActive !== false;
       const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/register");
 
       if (isAuthPage) {
@@ -20,12 +23,12 @@ export const authConfig = {
         return true;
       }
       if (
-        (pathname.startsWith("/library") ||
-          pathname.startsWith("/membership") ||
-          pathname.startsWith("/author")) &&
-        !isLoggedIn
+        pathname.startsWith("/library") ||
+        pathname.startsWith("/membership") ||
+        pathname.startsWith("/author")
       ) {
-        return false;
+        if (!isLoggedIn) return false;
+        if (!accountActive) return Response.redirect(new URL("/", request.nextUrl));
       }
       if (pathname.startsWith("/author") && !user?.isAuthor) {
         return Response.redirect(new URL("/", request.nextUrl));
@@ -47,6 +50,7 @@ export const authConfig = {
 
       const member = await getMemberById(String(token.id));
       const active = Boolean(member && member.status !== "Suspended");
+      token.accountActive = active;
       token.isMember = hasActiveMembership(member);
       token.isAdmin = Boolean(active && member?.isAdmin);
       token.isAuthor = Boolean(active && member?.isAuthor);
@@ -58,6 +62,7 @@ export const authConfig = {
         session.user.isMember = Boolean(token.isMember);
         session.user.isAdmin = Boolean(token.isAdmin);
         session.user.isAuthor = Boolean(token.isAuthor);
+        session.user.accountActive = token.accountActive !== false;
       }
       return session;
     },

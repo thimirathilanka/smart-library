@@ -19,6 +19,11 @@ export type ResourceFormValues = {
   doi?: string;
   category?: string;
   field?: string;
+  publisher?: string;
+  language?: string;
+  venue?: string;
+  pages?: string | number;
+  keywords?: string;
   year: number;
   access: AccessType;
   description: string;
@@ -37,6 +42,11 @@ type EditableValues = {
   doi: string;
   category: string;
   field: string;
+  publisher: string;
+  language: string;
+  venue: string;
+  pages: string;
+  keywords: string;
   year: string;
   access: AccessType;
   description: string;
@@ -52,6 +62,11 @@ function valuesFromInitial(initial?: ResourceFormValues): EditableValues {
     doi: initial?.doi ?? "",
     category: initial?.category ?? "",
     field: initial?.field ?? "",
+    publisher: initial?.publisher ?? "",
+    language: initial?.language ?? "",
+    venue: initial?.venue ?? "",
+    pages: initial?.pages != null ? String(initial.pages) : "",
+    keywords: initial?.keywords ?? "",
     year: initial ? String(initial.year) : "",
     access: initial?.access ?? "open",
     description: initial?.description ?? "",
@@ -409,6 +424,37 @@ export function ResourceForm({
           <Field label="Category" name="category" value={values.category} onValueChange={changeValue} required maxLength={80} />
         ) : (
           <Field label="Research field" name="field" value={values.field} onValueChange={changeValue} required maxLength={80} />
+        )}
+        {selected === "book" ? (
+          <Field label="Publisher" name="publisher" value={values.publisher} onValueChange={changeValue} required maxLength={120} />
+        ) : (
+          <Field label="Venue" name="venue" value={values.venue} onValueChange={changeValue} required maxLength={200} />
+        )}
+        {selected === "book" ? (
+          <Field label="Language" name="language" value={values.language} onValueChange={changeValue} required maxLength={80} />
+        ) : (
+          <Field
+            label="Keywords (comma-separated)"
+            name="keywords"
+            value={values.keywords}
+            onValueChange={changeValue}
+            required
+            maxLength={2000}
+          />
+        )}
+        {selected === "book" ? (
+          <Field
+            label="Pages"
+            name="pages"
+            type="number"
+            required
+            min={1}
+            max={100000}
+            value={values.pages}
+            onValueChange={changeValue}
+          />
+        ) : (
+          <Field label="Page range" name="pages" value={values.pages} onValueChange={changeValue} required maxLength={40} />
         )}
         <Field
           label="Year"

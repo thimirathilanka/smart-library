@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ReaderView } from "@/components/read/ReaderView";
 import { TrackRead } from "@/components/read/TrackRead";
@@ -58,24 +59,15 @@ export default async function BookReaderPage({
             isSignedIn={Boolean(session?.user?.id && member?.status === "Active")}
           />
         ) : (
-          <>
-            <p>{book.description}</p>
-            <p>
-              This opening chapter sets the terms of the inquiry: what is at stake,
-              which methods will carry the argument, and how later sections will
-              return to evidence. {book.author} writes with care for both specialists
-              and readers coming to {book.title.toLowerCase()} for the first time.
-            </p>
-            <p>
-              Libraries that treat knowledge as infrastructure—rather than as a
-              warehouse of files—design for presence: a quiet column of type, a
-              stable citation, and a record of where the reader left off.
-            </p>
-            <p>
-              Subsequent chapters develop method, evidence, and debate. Your place in
-              this volume is kept on My Library.
-            </p>
-          </>
+          <div className="rounded-2xl border border-dashed border-line bg-white px-6 py-16 text-center">
+            <p className="text-muted">No PDF is available for this title yet.</p>
+            <Link
+              href={`/books/${book._id}`}
+              className="mt-4 inline-flex rounded-full bg-navy px-4 py-2 text-sm font-medium text-white hover:bg-navy-mid"
+            >
+              Back to details
+            </Link>
+          </div>
         )}
       </ReaderView>
     </>

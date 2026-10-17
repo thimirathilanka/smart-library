@@ -47,11 +47,13 @@ export async function relatedPapers(paper: ResearchPaper, limit = 3) {
     .limit(limit)
     .toArray();
   if (sameField.length >= limit) return toPlain(sameField);
+  const keywords = paper.keywords.filter((keyword) => keyword.trim().toLowerCase() !== "catalog");
+  if (!keywords.length) return toPlain(sameField);
   const byKeyword = await papers
     .find(
       withPublished<ResearchPaper>({
         _id: { $nin: [paper._id, ...sameField.map((item) => item._id)] },
-        keywords: { $in: paper.keywords },
+        keywords: { $in: keywords },
       }),
     )
     .limit(limit - sameField.length)
@@ -258,6 +260,9 @@ async function applyPaperRevision(paper: ResearchPaper) {
         field: revision.field,
         year: revision.year,
         doi: revision.doi,
+        venue: revision.venue ?? paper.venue,
+        pages: revision.pages ?? paper.pages,
+        keywords: revision.keywords ?? paper.keywords,
         access: revision.access,
         publicationStatus: "published",
         ...(nextFileId ? { fileId: nextFileId } : {}),
@@ -301,5 +306,6 @@ export async function setPaperSummary(id: string, aiSummary: string) {
 
 export async function incrementPaperReads(id: string) {
   const { papers } = await collections();
-  await papers.updateOne({ _id: id }, { $inc: { reads: 1 } });
+  const result = await papers.updateOne(withPublished<ResearchPaper>({ _id: id }), { $inc: { reads: 1 } });
+  return result.matchedCount > 0;
 }

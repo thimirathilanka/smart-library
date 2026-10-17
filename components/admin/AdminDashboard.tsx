@@ -209,7 +209,7 @@ function AnalyticsPanel({
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label="Books in catalog" value={formatNumber(bookCount)} />
         <Stat label="Research papers" value={formatNumber(paperCount)} />
-        <Stat label="Active members" value={formatNumber(activeMembers)} />
+        <Stat label="Active accounts" value={formatNumber(activeMembers)} />
       </div>
       <div className="rounded-2xl border border-line bg-white p-5 shadow-sm">
         <h3 className="font-serif text-xl text-navy">Reads over time</h3>
@@ -254,8 +254,23 @@ function AnalyticsPanel({
 }
 
 function BooksTable({ books, fileNames }: { books: AdminCatalog["books"]; fileNames: Record<string, string> }) {
+  const [query, setQuery] = useState("");
+  const filtered = books.filter((book) => {
+    const haystack = `${book.title} ${book.author}`.toLowerCase();
+    return !query.trim() || haystack.includes(query.trim().toLowerCase());
+  });
+
   return (
     <Panel title="Books">
+      <label className="mb-4 block text-xs font-semibold tracking-wide text-muted uppercase">
+        Search titles
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Filter by title or author"
+          className="mt-1.5 w-full max-w-md rounded-lg border border-line px-3 py-2 text-sm font-normal text-ink outline-none focus:border-navy-soft"
+        />
+      </label>
       <table className="w-full text-left text-sm">
         <thead className="text-xs tracking-wide text-muted uppercase">
           <tr>
@@ -269,12 +284,15 @@ function BooksTable({ books, fileNames }: { books: AdminCatalog["books"]; fileNa
           </tr>
         </thead>
         <tbody>
-          {books.map((book) => {
+          {filtered.map((book) => {
             const initial: ResourceFormValues = {
               title: book.title,
               author: book.author,
               isbn: book.isbn,
               category: book.category,
+              publisher: book.publisher,
+              language: book.language,
+              pages: book.pages,
               year: book.year,
               access: book.access,
               description: book.description,
@@ -301,6 +319,11 @@ function BooksTable({ books, fileNames }: { books: AdminCatalog["books"]; fileNa
           })}
         </tbody>
       </table>
+      {filtered.length === 0 ? (
+        <p className="mt-4 text-sm text-muted">
+          {books.length === 0 ? "No books in the catalog yet." : "No books match this search."}
+        </p>
+      ) : null}
     </Panel>
   );
 }
@@ -312,8 +335,23 @@ function PapersTable({
   papers: AdminCatalog["papers"];
   fileNames: Record<string, string>;
 }) {
+  const [query, setQuery] = useState("");
+  const filtered = papers.filter((paper) => {
+    const haystack = `${paper.title} ${paper.authors.join(" ")} ${paper.field}`.toLowerCase();
+    return !query.trim() || haystack.includes(query.trim().toLowerCase());
+  });
+
   return (
     <Panel title="Research papers">
+      <label className="mb-4 block text-xs font-semibold tracking-wide text-muted uppercase">
+        Search titles
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Filter by title, author, or field"
+          className="mt-1.5 w-full max-w-md rounded-lg border border-line px-3 py-2 text-sm font-normal text-ink outline-none focus:border-navy-soft"
+        />
+      </label>
       <table className="w-full text-left text-sm">
         <thead className="text-xs tracking-wide text-muted uppercase">
           <tr>
@@ -326,12 +364,15 @@ function PapersTable({
           </tr>
         </thead>
         <tbody>
-          {papers.map((paper) => {
+          {filtered.map((paper) => {
             const initial: ResourceFormValues = {
               title: paper.title,
               authors: paper.authors.join(", "),
               doi: paper.doi,
               field: paper.field,
+              venue: paper.venue,
+              pages: paper.pages,
+              keywords: paper.keywords.join(", "),
               year: paper.year,
               access: paper.access,
               description: paper.abstract,
@@ -357,6 +398,11 @@ function PapersTable({
           })}
         </tbody>
       </table>
+      {filtered.length === 0 ? (
+        <p className="mt-4 text-sm text-muted">
+          {papers.length === 0 ? "No papers in the catalog yet." : "No papers match this search."}
+        </p>
+      ) : null}
     </Panel>
   );
 }
@@ -509,8 +555,23 @@ function UsersTable({
   members: AdminCatalog["members"];
   currentAdminId: string;
 }) {
+  const [query, setQuery] = useState("");
+  const filtered = members.filter((member) => {
+    const haystack = `${member.name} ${member.email}`.toLowerCase();
+    return !query.trim() || haystack.includes(query.trim().toLowerCase());
+  });
+
   return (
     <Panel title="Members">
+      <label className="mb-4 block text-xs font-semibold tracking-wide text-muted uppercase">
+        Search members
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Filter by name or email"
+          className="mt-1.5 w-full max-w-md rounded-lg border border-line px-3 py-2 text-sm font-normal text-ink outline-none focus:border-navy-soft"
+        />
+      </label>
       <table className="w-full text-left text-sm">
         <thead className="text-xs tracking-wide text-muted uppercase">
           <tr>
@@ -523,11 +584,16 @@ function UsersTable({
           </tr>
         </thead>
         <tbody>
-          {members.map((member) => (
+          {filtered.map((member) => (
             <MemberRow key={member._id} member={member} currentAdminId={currentAdminId} />
           ))}
         </tbody>
       </table>
+      {filtered.length === 0 ? (
+        <p className="mt-4 text-sm text-muted">
+          {members.length === 0 ? "No members yet." : "No members match this search."}
+        </p>
+      ) : null}
     </Panel>
   );
 }

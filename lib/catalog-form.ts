@@ -11,9 +11,14 @@ const TITLE_MAX = 200;
 const AUTHOR_MAX = 120;
 const DESCRIPTION_MAX = 4000;
 const LABEL_MAX = 80;
+const PUBLISHER_MAX = 120;
+const VENUE_MAX = 200;
+const LANGUAGE_MAX = 80;
+const PAGES_LABEL_MAX = 40;
 const ISBN_MAX = 32;
 const DOI_MAX = 200;
 const AUTHOR_COUNT_MAX = 20;
+const KEYWORD_COUNT_MAX = 20;
 
 function slugId(prefix: string, title: string) {
   const slug = title
@@ -68,14 +73,46 @@ function doiOf(value: string): { ok: true; doi: string } | { ok: false; error: s
   return { ok: true, doi };
 }
 
+function bookPagesOf(value: FormDataEntryValue | null): { ok: true; pages: number } | { ok: false; error: string } {
+  const raw = String(value ?? "").trim();
+  if (!/^\d+$/.test(raw)) return { ok: false, error: "Enter the page count as a whole number." };
+  const pages = Number(raw);
+  if (pages < 1 || pages > 100_000) return { ok: false, error: "Page count must be between 1 and 100000." };
+  return { ok: true, pages };
+}
+
+function paperPagesOf(value: FormDataEntryValue | null): { ok: true; pages: string } | { ok: false; error: string } {
+  const pages = limited(String(value ?? ""), PAGES_LABEL_MAX, "Page range");
+  if (!pages.ok) return pages;
+  if (!pages.value) return { ok: false, error: "Page range is required." };
+  return { ok: true, pages: pages.value };
+}
+
+function keywordsOf(value: FormDataEntryValue | null): { ok: true; keywords: string[] } | { ok: false; error: string } {
+  const field = limited(String(value ?? ""), 2000, "Keywords");
+  if (!field.ok) return field;
+  const keywords = field.value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (!keywords.length) return { ok: false, error: "Enter at least one keyword." };
+  if (keywords.length > KEYWORD_COUNT_MAX) {
+    return { ok: false, error: `Enter ${KEYWORD_COUNT_MAX} keywords or fewer.` };
+  }
+  if (keywords.some((keyword) => keyword.length > LABEL_MAX)) {
+    return { ok: false, error: `Each keyword must be ${LABEL_MAX} characters or fewer.` };
+  }
+  return { ok: true, keywords };
+}
+
 export type BookEdits = Pick<
   Book,
-  "title" | "author" | "category" | "year" | "isbn" | "access" | "description"
+  "title" | "author" | "category" | "year" | "isbn" | "publisher" | "pages" | "language" | "access" | "description"
 >;
 
 export type PaperEdits = Pick<
   ResearchPaper,
-  "title" | "authors" | "abstract" | "field" | "year" | "doi" | "access"
+  "title" | "authors" | "abstract" | "field" | "year" | "doi" | "venue" | "pages" | "keywords" | "access"
 >;
 
 export function editsFromForm(
@@ -116,6 +153,16 @@ export function editsFromForm(
     if (!field.ok) return field;
     if (!field.value) return { ok: false, error: "Research field is required." };
 
+    const venue = limited(String(formData.get("venue") ?? ""), VENUE_MAX, "Venue");
+    if (!venue.ok) return venue;
+    if (!venue.value) return { ok: false, error: "Venue is required." };
+
+    const pages = paperPagesOf(formData.get("pages"));
+    if (!pages.ok) return pages;
+
+    const keywords = keywordsOf(formData.get("keywords"));
+    if (!keywords.ok) return keywords;
+
     const doi = doiOf(String(formData.get("doi") ?? ""));
     if (!doi.ok) return doi;
 
@@ -129,6 +176,9 @@ export function editsFromForm(
         field: field.value,
         year: year.year,
         doi: doi.doi,
+        venue: venue.value,
+        pages: pages.pages,
+        keywords: keywords.keywords,
         access,
       },
     };
@@ -144,6 +194,17 @@ export function editsFromForm(
   if (!category.ok) return category;
   if (!category.value) return { ok: false, error: "Category is required." };
 
+  const publisher = limited(String(formData.get("publisher") ?? ""), PUBLISHER_MAX, "Publisher");
+  if (!publisher.ok) return publisher;
+  if (!publisher.value) return { ok: false, error: "Publisher is required." };
+
+  const language = limited(String(formData.get("language") ?? ""), LANGUAGE_MAX, "Language");
+  if (!language.ok) return language;
+  if (!language.value) return { ok: false, error: "Language is required." };
+
+  const pages = bookPagesOf(formData.get("pages"));
+  if (!pages.ok) return pages;
+
   const isbn = isbnOf(String(formData.get("isbn") ?? ""));
   if (!isbn.ok) return isbn;
 
@@ -156,6 +217,9 @@ export function editsFromForm(
       category: category.value,
       year: year.year,
       isbn: isbn.isbn,
+      publisher: publisher.value,
+      pages: pages.pages,
+      language: language.value,
       access,
       description: description.value,
     },
@@ -183,12 +247,9 @@ export function draftFromForm(
       paper: {
         _id: slugId("p", parsed.edits.title),
         ...parsed.edits,
-        keywords: ["catalog"],
         publishedAt: addedAt,
-        venue: "Nextgen Digital Library",
         venueType: "journal",
         citations: 0,
-        pages: "1–12",
         addedAt,
         reads: 0,
         submittedBy: options.submittedBy,
@@ -203,9 +264,6 @@ export function draftFromForm(
     book: {
       _id: slugId("b", parsed.edits.title),
       ...parsed.edits,
-      publisher: "Nextgen Digital Library",
-      pages: 240,
-      language: "English",
       rating: 0,
       ratingsCount: 0,
       cover: covers[Math.floor(Math.random() * covers.length)]!,

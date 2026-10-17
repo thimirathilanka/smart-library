@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { PaperCard } from "@/components/papers/PaperCard";
-import type { ResearchPaper } from "@/lib/types";
+import type { AccessType, ResearchPaper } from "@/lib/types";
 
 export function PaperCatalog({
   papers,
@@ -19,6 +19,7 @@ export function PaperCatalog({
   const [author, setAuthor] = useState("all");
   const [year, setYear] = useState("all");
   const [keyword, setKeyword] = useState("all");
+  const [access, setAccess] = useState<"all" | AccessType>("all");
 
   const authors = useMemo(
     () => Array.from(new Set(papers.flatMap((paper) => paper.authors))).sort(),
@@ -45,7 +46,8 @@ export function PaperCatalog({
       (field === "all" || paper.field === field) &&
       (author === "all" || paper.authors.includes(author)) &&
       (year === "all" || paper.year === Number(year)) &&
-      (keyword === "all" || paper.keywords.includes(keyword))
+      (keyword === "all" || paper.keywords.includes(keyword)) &&
+      (access === "all" || paper.access === access)
     );
   });
 
@@ -86,6 +88,15 @@ export function PaperCatalog({
           onChange={setKeyword}
           options={keywords.map((item) => ({ value: item, label: item }))}
         />
+        <Select
+          label="Access"
+          value={access}
+          onChange={(value) => setAccess(value as "all" | AccessType)}
+          options={[
+            { value: "open", label: "Open Access" },
+            { value: "members", label: "Members only" },
+          ]}
+        />
         <button
           type="button"
           className="mt-5 text-sm text-navy-mid hover:underline"
@@ -95,6 +106,7 @@ export function PaperCatalog({
             setAuthor("all");
             setYear("all");
             setKeyword("all");
+            setAccess("all");
           }}
         >
           Clear search

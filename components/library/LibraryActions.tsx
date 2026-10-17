@@ -13,17 +13,22 @@ export function LibraryActions({
   saved,
   favorited,
   signedIn,
+  callbackUrl,
 }: {
   resourceId: string;
   kind: ResourceKind;
   saved: boolean;
   favorited: boolean;
   signedIn: boolean;
+  callbackUrl: string;
 }) {
   if (!signedIn) {
     return (
       <p className="mt-3 text-xs text-muted">
-        <a href="/login" className="font-medium text-navy hover:underline">
+        <a
+          href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+          className="font-medium text-navy hover:underline"
+        >
           Sign in
         </a>{" "}
         to save this title to My Library.

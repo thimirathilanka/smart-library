@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ReaderView } from "@/components/read/ReaderView";
 import { TrackRead } from "@/components/read/TrackRead";
@@ -60,27 +61,15 @@ export default async function PaperReaderPage({
             isSignedIn={Boolean(session?.user?.id && member?.status === "Active")}
           />
         ) : (
-          <>
-            <p>
-              <strong>Abstract.</strong> {paper.abstract}
-            </p>
-            <p>
-              <strong>1. Introduction.</strong> The authors situate the problem in{" "}
-              {paper.field.toLowerCase()} and outline the contribution that follows.
-              Keywords: {paper.keywords.join(", ")}.
-            </p>
-            <p>
-              <strong>2. Contribution.</strong>{" "}
-              {paper.doi
-                ? `Findings are reported under DOI ${paper.doi} and indexed with the venue record for ${paper.venue}.`
-                : `Findings are indexed with the venue record for ${paper.venue}.`}
-            </p>
-            <p>
-              <strong>3. Closing.</strong> Related work, metadata, and formatted
-              citations are available from the paper record. Reading progress is kept
-              on My Library.
-            </p>
-          </>
+          <div className="rounded-2xl border border-dashed border-line bg-white px-6 py-16 text-center">
+            <p className="text-muted">No PDF is available for this title yet.</p>
+            <Link
+              href={`/research/${paper._id}`}
+              className="mt-4 inline-flex rounded-full bg-navy px-4 py-2 text-sm font-medium text-white hover:bg-navy-mid"
+            >
+              Back to details
+            </Link>
+          </div>
         )}
       </ReaderView>
     </>

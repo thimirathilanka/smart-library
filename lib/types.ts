@@ -22,6 +22,9 @@ export type BookRevision = RevisionMeta & {
   category: string;
   year: number;
   isbn: string;
+  publisher: string;
+  pages: number;
+  language: string;
   access: AccessType;
   description: string;
 };
@@ -33,6 +36,9 @@ export type PaperRevision = RevisionMeta & {
   field: string;
   year: number;
   doi: string;
+  venue: string;
+  pages: string;
+  keywords: string[];
   access: AccessType;
 };
 

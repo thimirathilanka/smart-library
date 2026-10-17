@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
-import { cancelMembership, grantMembership } from "@/lib/data/members";
+import { cancelMembership, grantMembership, requireActiveAccount } from "@/lib/data/members";
 import { recordActivity } from "@/lib/data/activity";
 
 export type MembershipPurchaseResult = {
@@ -16,6 +16,9 @@ export async function purchaseMembershipAction(): Promise<MembershipPurchaseResu
   const session = await auth();
   const memberId = session?.user?.id;
   if (!memberId) return { success: false, error: "Sign in to get membership." };
+
+  const member = await requireActiveAccount(memberId);
+  if (!member) return { success: false, error: "Your account cannot start a membership right now." };
 
   const membershipExpiresAt = await grantMembership(memberId);
   if (!membershipExpiresAt) {
@@ -31,6 +34,9 @@ export async function cancelMembershipAction(): Promise<MembershipPurchaseResult
   const session = await auth();
   const memberId = session?.user?.id;
   if (!memberId) return { success: false, error: "Sign in to manage membership." };
+
+  const member = await requireActiveAccount(memberId);
+  if (!member) return { success: false, error: "Your account cannot manage membership right now." };
 
   const cancelled = await cancelMembership(memberId);
   if (!cancelled) {
