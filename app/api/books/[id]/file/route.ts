@@ -14,7 +14,7 @@ export async function GET(
   const book = await getBookForStaff(id);
   if (!book) return new NextResponse("Not found", { status: 404 });
 
-  const { session, member, activeAdmin, activeAuthor } = await previewSession();
+  const { session, member, activeAdmin, activeAuthor } = await previewSession(request);
   const owner = isResourceOwner(activeAuthor, member?._id, book.submittedBy);
   const published = !book.publicationStatus || book.publicationStatus === "published";
 
