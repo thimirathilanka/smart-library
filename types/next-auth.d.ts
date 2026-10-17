@@ -5,6 +5,8 @@ declare module "next-auth" {
     id: string;
     isMember: boolean;
     isAdmin: boolean;
+    isAuthor: boolean;
+    accountActive?: boolean;
   }
 
   interface Session {
@@ -12,6 +14,8 @@ declare module "next-auth" {
       id: string;
       isMember: boolean;
       isAdmin: boolean;
+      isAuthor: boolean;
+      accountActive: boolean;
     } & DefaultSession["user"];
   }
 }
@@ -21,5 +25,7 @@ declare module "next-auth/jwt" {
     id?: string;
     isMember?: boolean;
     isAdmin?: boolean;
+    isAuthor?: boolean;
+    accountActive?: boolean;
   }
 }

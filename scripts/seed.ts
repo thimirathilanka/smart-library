@@ -1,28 +1,115 @@
 import { config } from "dotenv";
 import { hash } from "bcryptjs";
-import { MongoClient, type AnyBulkWriteOperation } from "mongodb";
-import { books, members, monthlyReads, papers, userLibrary } from "../lib/mock-data";
-import type { Book, MemberRecord, MonthlyReads, ResearchPaper } from "../lib/types";
+import { GridFSBucket, MongoClient, ObjectId } from "mongodb";
+import type { MemberRecord } from "../lib/types";
 
 config({ path: ".env.local" });
 config();
 
-const mongoUri = process.env.MONGODB_URI;
-const dbName = process.env.MONGODB_DB ?? "nextgen-library";
-const seedPassword = process.env.SEED_PASSWORD ?? "library123";
+const demoBookIds = [
+  "b-quantum",
+  "b-knowledge",
+  "b-climate",
+  "b-manuscripts",
+  "b-nlm",
+  "b-biomed",
+  "b-urban",
+  "b-networks",
+  "b-sahel",
+  "b-dh",
+  "b-geology",
+  "b-law",
+];
 
-if (!mongoUri) {
-  throw new Error("MONGODB_URI is not set. Copy .env.example to .env.local.");
+const demoPaperIds = [
+  "p-attn",
+  "p-ice",
+  "p-consent",
+  "p-catalog",
+  "p-networks",
+  "p-cities",
+  "p-sahel",
+  "p-algogov",
+  "p-dh",
+  "p-quantum",
+];
+
+const demoMemberIds = [
+  "u-amelia",
+  "u-jonas",
+  "u-leila",
+  "u-marco",
+  "u-priya",
+  "u-noah",
+  "u-sofia",
+  "u-admin",
+];
+
+type StoredFile = { _id: string; fileId?: string };
+
+const demoMonths = [
+  { month: "Mar", year: 2026 },
+  { month: "Apr", year: 2026 },
+  { month: "May", year: 2026 },
+  { month: "Jun", year: 2026 },
+  { month: "Jul", year: 2026 },
+  { month: "Aug", year: 2026 },
+  { month: "Sep", year: 2026 },
+];
+
+function isEmail(value: string) {
+  return value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-const uri: string = mongoUri;
+async function deleteStoredFiles(
+  bucket: GridFSBucket,
+  fileIds: Array<string | undefined>,
+) {
+  for (const fileId of fileIds) {
+    if (!fileId || !ObjectId.isValid(fileId)) continue;
+    const id = new ObjectId(fileId);
+    if (!(await bucket.find({ _id: id }).hasNext())) continue;
+    await bucket.delete(id);
+  }
+}
 
 async function seed() {
-  const client = new MongoClient(uri);
+  const mongoUri = process.env.MONGODB_URI;
+  const dbName = process.env.MONGODB_DB ?? "nextgen-library";
+  if (!mongoUri) {
+    throw new Error("MONGODB_URI is not set. Copy .env.example to .env.local.");
+  }
+
+  const client = new MongoClient(mongoUri);
   await client.connect();
   const db = client.db(dbName);
-  const passwordHash = await hash(seedPassword, 10);
-  const emptyLibrary = { saved: [], history: [], favorites: [] };
+
+  if (process.argv.includes("--reset")) {
+    const books = await db
+      .collection<StoredFile>("books")
+      .find({ _id: { $in: demoBookIds } })
+      .project<StoredFile>({ fileId: 1 })
+      .toArray();
+    const papers = await db
+      .collection<StoredFile>("papers")
+      .find({ _id: { $in: demoPaperIds } })
+      .project<StoredFile>({ fileId: 1 })
+      .toArray();
+    await deleteStoredFiles(
+      new GridFSBucket(db),
+      [...books, ...papers].map((item) => item.fileId),
+    );
+
+    const [removedBooks, removedPapers, removedMembers, removedMonths] = await Promise.all([
+      db.collection<StoredFile>("books").deleteMany({ _id: { $in: demoBookIds } }),
+      db.collection<StoredFile>("papers").deleteMany({ _id: { $in: demoPaperIds } }),
+      db.collection<MemberRecord>("members").deleteMany({ _id: { $in: demoMemberIds } }),
+      db.collection("monthlyReads").deleteMany({ $or: demoMonths }),
+    ]);
+    console.log(
+      `Removed demo catalog: ${removedBooks.deletedCount} books, ${removedPapers.deletedCount} papers, ${removedMembers.deletedCount} members, ${removedMonths.deletedCount} monthly read rows.`,
+    );
+  }
 
   await Promise.all([
     db.collection("members").createIndex({ email: 1 }, { unique: true }),
@@ -32,50 +119,49 @@ async function seed() {
     db.collection("papers").createIndex({ keywords: 1 }),
   ]);
 
-  const bookOps: AnyBulkWriteOperation<Book>[] = books.map((book) => ({
-    updateOne: { filter: { _id: book._id }, update: { $set: book }, upsert: true },
-  }));
-  await db.collection<Book>("books").bulkWrite(bookOps);
+  const name = process.env.ADMIN_NAME?.trim() ?? "";
+  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase() ?? "";
+  const password = process.env.ADMIN_PASSWORD ?? "";
+  const adminConfigured = Boolean(name || email || password);
+  if (adminConfigured && (!name || !email || !password)) {
+    throw new Error("Set ADMIN_NAME, ADMIN_EMAIL, and ADMIN_PASSWORD together to create the first admin.");
+  }
 
-  const paperOps: AnyBulkWriteOperation<ResearchPaper>[] = papers.map((paper) => ({
-    updateOne: { filter: { _id: paper._id }, update: { $set: paper }, upsert: true },
-  }));
-  await db.collection<ResearchPaper>("papers").bulkWrite(paperOps);
+  if (!adminConfigured) {
+    console.log("Indexes are ready. Set ADMIN_NAME, ADMIN_EMAIL, and ADMIN_PASSWORD to create the first admin.");
+    await client.close();
+    return;
+  }
 
-  const memberOps: AnyBulkWriteOperation<MemberRecord>[] = members.map((member) => ({
-    updateOne: {
-      filter: { _id: member._id },
-      update: {
-        $set: {
-          ...member,
-          email: member.email.toLowerCase(),
-          passwordHash,
-          library: member._id === "u-amelia" ? userLibrary : emptyLibrary,
-        },
-        $unset: {
-          department: "",
-          role: "",
-          plan: "",
-          ...(member.isMember ? {} : { membershipExpiresAt: "" }),
-        },
-      },
-      upsert: true,
-    },
-  }));
-  await db.collection<MemberRecord>("members").bulkWrite(memberOps);
+  if (name.length > 160 || !isEmail(email) || password.length < 8) {
+    throw new Error("Admin name must be 160 characters or fewer, with a valid email and a password of at least 8 characters.");
+  }
 
-  const monthOps: AnyBulkWriteOperation<MonthlyReads>[] = monthlyReads.map((row) => ({
-    updateOne: {
-      filter: { month: row.month, year: row.year },
-      update: { $set: row },
-      upsert: true,
-    },
-  }));
-  await db.collection<MonthlyReads>("monthlyReads").bulkWrite(monthOps);
+  const members = db.collection<MemberRecord>("members");
+  const existing = await members.findOne({ email });
+  if (existing) {
+    console.log(`Account ${email} already exists. Left unchanged.`);
+    await client.close();
+    return;
+  }
 
-  console.log(`Seeded ${books.length} books, ${papers.length} papers, ${members.length} members.`);
-  console.log(`Seed password for all members: ${seedPassword}`);
-  console.log("Admin login: admin@nextgen.library");
+  const expires = new Date();
+  expires.setUTCDate(expires.getUTCDate() + 365);
+  await members.insertOne({
+    _id: `u-${crypto.randomUUID()}`,
+    name,
+    email,
+    isMember: true,
+    isAdmin: true,
+    isAuthor: false,
+    membershipExpiresAt: expires.toISOString().slice(0, 10),
+    joinedAt: new Date().toISOString().slice(0, 10),
+    reads: 0,
+    status: "Active",
+    passwordHash: await hash(password, 10),
+    library: { saved: [], history: [], favorites: [] },
+  });
+  console.log(`Created admin ${email}.`);
   await client.close();
 }
 

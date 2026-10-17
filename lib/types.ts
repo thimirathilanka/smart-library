@@ -2,6 +2,48 @@ export type AccessType = "open" | "members";
 
 export type ResourceKind = "book" | "paper";
 
+export type PublicationStatus = "pending" | "published" | "rejected" | "withdrawn";
+
+export type RevisionStatus = "pending" | "rejected";
+
+type RevisionMeta = {
+  status: RevisionStatus;
+  submittedAt: string;
+  reviewNote?: string;
+  fileId?: string;
+  coverId?: string;
+  clearCover?: boolean;
+  aiSummary?: string;
+};
+
+export type BookRevision = RevisionMeta & {
+  title: string;
+  author: string;
+  category: string;
+  year: number;
+  isbn: string;
+  publisher: string;
+  pages: number;
+  language?: string;
+  access: AccessType;
+  description: string;
+};
+
+export type PaperRevision = RevisionMeta & {
+  title: string;
+  authors: string[];
+  abstract: string;
+  field: string;
+  year: number;
+  doi: string;
+  venue: string;
+  venueType: "journal" | "conference";
+  pages?: string;
+  keywords: string[];
+  citations: number;
+  access: AccessType;
+};
+
 export type Book = {
   _id: string;
   title: string;
@@ -13,7 +55,7 @@ export type Book = {
   publisher: string;
   isbn: string;
   pages: number;
-  language: string;
+  language?: string;
   access: AccessType;
   rating: number;
   ratingsCount: number;
@@ -26,6 +68,13 @@ export type Book = {
   addedAt: string;
   reads: number;
   featured?: boolean;
+  publicationStatus?: PublicationStatus;
+  submittedBy?: string;
+  reviewNote?: string;
+  fileId?: string;
+  coverId?: string;
+  aiSummary?: string;
+  revision?: BookRevision;
 };
 
 export type ResearchPaper = {
@@ -40,11 +89,28 @@ export type ResearchPaper = {
   venue: string;
   venueType: "journal" | "conference";
   citations: number;
-  pages: string;
+  pages?: string;
   doi: string;
   access: AccessType;
+  rating?: number;
+  ratingsCount?: number;
   addedAt: string;
   reads: number;
+  publicationStatus?: PublicationStatus;
+  submittedBy?: string;
+  reviewNote?: string;
+  fileId?: string;
+  coverId?: string;
+  aiSummary?: string;
+  revision?: PaperRevision;
+};
+
+export type ResourceRating = {
+  userId: string;
+  kind: ResourceKind;
+  resourceId: string;
+  score: number;
+  updatedAt: Date;
 };
 
 export type Member = {
@@ -53,6 +119,7 @@ export type Member = {
   email: string;
   isMember: boolean;
   isAdmin: boolean;
+  isAuthor: boolean;
   membershipExpiresAt?: string;
   joinedAt: string;
   reads: number;
@@ -65,12 +132,24 @@ export type LibraryItem = {
   savedAt?: string;
   lastReadAt?: string;
   progress?: number;
+  bookmarkPage?: number;
+  totalPages?: number;
 };
 
 export type UserLibrary = {
   saved: LibraryItem[];
   history: LibraryItem[];
   favorites: LibraryItem[];
+};
+
+export type ContinueReadingItem = {
+  kind: ResourceKind;
+  resourceId: string;
+  bookmarkPage?: number;
+  totalPages?: number;
+  progress?: number;
+  book?: Book;
+  paper?: ResearchPaper;
 };
 
 export type MemberRecord = Member & {
@@ -84,6 +163,7 @@ export type SessionUser = {
   email: string;
   isMember: boolean;
   isAdmin: boolean;
+  isAuthor: boolean;
 };
 
 export type MonthlyReads = {
@@ -91,6 +171,46 @@ export type MonthlyReads = {
   year: number;
   books: number;
   papers: number;
+};
+
+export type ActivityLogRecord = {
+  actorId: string | null;
+  action: string;
+  targetKind?: string;
+  targetId?: string;
+  detail: string;
+  createdAt: Date;
+};
+
+export type ActivityLogEntry = {
+  actorId: string | null;
+  actorName: string;
+  action: string;
+  targetKind?: string;
+  targetId?: string;
+  detail: string;
+  createdAt: string;
+};
+
+export type NotificationRecord = {
+  _id?: import("mongodb").ObjectId;
+  userId: string;
+  title: string;
+  message: string;
+  href: string;
+  kind: "admin" | "author" | "reader";
+  createdAt: Date;
+  readAt?: Date;
+};
+
+export type NotificationEntry = {
+  id: string;
+  title: string;
+  message: string;
+  href: string;
+  kind: "admin" | "author" | "reader";
+  createdAt: string;
+  read: boolean;
 };
 
 export type PopularResource = {
@@ -117,4 +237,5 @@ export type AdminCatalog = {
   members: Member[];
   monthlyReads: MonthlyReads[];
   popularResources: PopularResource[];
+  recentActivity: ActivityLogEntry[];
 };

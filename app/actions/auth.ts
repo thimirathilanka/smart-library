@@ -5,11 +5,35 @@ import { AuthError } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth, signIn, signOut } from "@/auth";
-import { createBook, incrementBookReads } from "@/lib/data/books";
-import { incrementMonthlyReads } from "@/lib/data/catalog";
-import { createMember, getMemberByEmail, recordReading, toggleLibraryList } from "@/lib/data/members";
-import { createPaper, incrementPaperReads } from "@/lib/data/papers";
-import type { AccessType, ResourceKind } from "@/lib/types";
+import { getBook } from "@/lib/data/books";
+import {
+  createMember,
+  getMemberByEmail,
+  getMemberById,
+  hasActiveMembership,
+  isActiveAccount,
+  recordReading,
+  requireActiveAccount,
+  toggleLibraryList,
+} from "@/lib/data/members";
+import { getPaper } from "@/lib/data/papers";
+import { recordActivity } from "@/lib/data/activity";
+import { safeCallbackPath } from "@/lib/safe-callback";
+import type { ResourceKind } from "@/lib/types";
+
+const NAME_MAX = 80;
+
+function isEmail(value: string) {
+  return value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function isResourceId(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= 80 && !value.includes("\0");
+}
+
+function isResourceKind(value: unknown): value is ResourceKind {
+  return value === "book" || value === "paper";
+}
 
 export type AuthState = {
   error?: string;
@@ -20,17 +44,14 @@ export type AuthState = {
     email?: string;
     password?: string;
     confirmPassword?: string;
+    accountType?: "reader" | "author";
   };
 };
-
-function staff(isAdmin?: boolean) {
-  return Boolean(isAdmin);
-}
 
 export async function loginAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  const callbackUrl = String(formData.get("callbackUrl") ?? "/") || "/";
+  const callbackUrl = safeCallbackPath(String(formData.get("callbackUrl") ?? "/"));
   try {
     await signIn("credentials", { email, password, redirectTo: callbackUrl });
   } catch (error) {
@@ -48,21 +69,27 @@ export async function registerAction(_prev: AuthState, formData: FormData): Prom
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
-  const values = { firstName, lastName, email };
+  const accountType: "reader" | "author" =
+    String(formData.get("accountType") ?? "reader") === "author" ? "author" : "reader";
+  const values = { firstName, lastName, email, accountType };
   const name = `${firstName} ${lastName}`.replace(/\s+/g, " ").trim();
 
-  if (!firstName || !lastName || !email || password.length < 8) {
+  if (!firstName || !lastName || firstName.length > NAME_MAX || lastName.length > NAME_MAX) {
     return {
-      error: "First name, last name, email, and a password of at least 8 characters are required.",
+      error: "First and last name are required and must be 80 characters or fewer.",
+      values,
+    };
+  }
+
+  if (!isEmail(email) || password.length < 8) {
+    return {
+      error: "Enter a valid email and a password of at least 8 characters.",
       values,
     };
   }
 
   if (password !== confirmPassword) {
-    return {
-      error: "Passwords do not match.",
-      values: { ...values, password, confirmPassword },
-    };
+    return { error: "Passwords do not match.", values };
   }
 
   const existing = await getMemberByEmail(email);
@@ -70,18 +97,21 @@ export async function registerAction(_prev: AuthState, formData: FormData): Prom
     return { error: "An account with that email already exists.", values };
   }
 
+  const memberId = `u-${crypto.randomUUID()}`;
   await createMember({
-    _id: `u-${crypto.randomUUID()}`,
+    _id: memberId,
     name,
     email,
     isMember: false,
     isAdmin: false,
+    isAuthor: accountType === "author",
     joinedAt: new Date().toISOString().slice(0, 10),
     reads: 0,
     status: "Active",
     passwordHash: await hash(password, 10),
     library: { saved: [], history: [], favorites: [] },
   });
+  await recordActivity({ actorId: memberId, action: "auth.registered", detail: `Registered as ${accountType}` });
 
   try {
     await signIn("credentials", { email, password, redirectTo: "/" });
@@ -95,102 +125,48 @@ export async function registerAction(_prev: AuthState, formData: FormData): Prom
 }
 
 export async function signOutAction() {
+  const session = await auth();
+  await recordActivity({ actorId: session?.user?.id ?? null, action: "auth.signed_out", detail: "Signed out" });
   await signOut({ redirectTo: "/" });
 }
 
-const covers = [
-  { from: "#0B1F3A", to: "#1B4F8A", accent: "#C9A227" },
-  { from: "#1A2F23", to: "#3D6B4F", accent: "#E8D5A3" },
-  { from: "#1B1B3A", to: "#4C3A8C", accent: "#7EE0C8" },
-  { from: "#121C33", to: "#2C4A7A", accent: "#C9B037" },
-];
+export async function trackReadAction(kind: ResourceKind, id: string) {
+  if (!isResourceKind(kind) || !isResourceId(id)) return;
 
-function slugId(prefix: string, title: string) {
-  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 36);
-  return `${prefix}-${slug || "item"}-${Date.now().toString(36)}`;
-}
+  const resource = kind === "book" ? await getBook(id) : await getPaper(id);
+  if (!resource) return;
 
-export async function createResourceAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const session = await auth();
-  if (!staff(session?.user?.isAdmin)) return { error: "You do not have permission to add resources." };
+  const member = session?.user?.id ? await getMemberById(session.user.id) : null;
+  if (member && !isActiveAccount(member)) return;
 
-  const kind = String(formData.get("kind") ?? "book");
-  const title = String(formData.get("title") ?? "").trim();
-  const year = Number(formData.get("year") ?? new Date().getFullYear());
-  const access = String(formData.get("access") ?? "open") === "members" ? "members" : "open";
-  const description = String(formData.get("description") ?? "").trim();
-  if (!title) return { error: "Title is required." };
-
-  if (kind === "paper") {
-    const authors = String(formData.get("authors") ?? "")
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
-    await createPaper({
-      _id: slugId("p", title),
-      title,
-      authors: authors.length ? authors : ["Unknown"],
-      abstract: description || "Abstract forthcoming.",
-      keywords: ["catalog"],
-      field: String(formData.get("field") ?? "Humanities"),
-      year: Number.isFinite(year) ? year : new Date().getFullYear(),
-      publishedAt: new Date().toISOString().slice(0, 10),
-      venue: "Nextgen Digital Library",
-      venueType: "journal",
-      citations: 0,
-      pages: "1–12",
-      doi: String(formData.get("doi") ?? `10.0000/${Date.now()}`),
-      access: access as AccessType,
-      addedAt: new Date().toISOString().slice(0, 10),
-      reads: 0,
-    });
-    revalidatePath("/research");
-    revalidatePath("/admin");
-    revalidatePath("/");
-    return { success: "Paper added to the catalog." };
+  if (resource.access === "members") {
+    const isAdmin = Boolean(member && isActiveAccount(member) && member.isAdmin);
+    if (!isAdmin && !hasActiveMembership(member)) return;
   }
 
-  await createBook({
-    _id: slugId("b", title),
-    title,
-    author: String(formData.get("author") ?? "Unknown").trim() || "Unknown",
-    category: String(formData.get("category") ?? "Humanities"),
-    year: Number.isFinite(year) ? year : new Date().getFullYear(),
-    publisher: "Nextgen Digital Library",
-    isbn: String(formData.get("isbn") ?? "000-0-000-00000-0"),
-    pages: 240,
-    language: "English",
-    access: access as AccessType,
-    rating: 0,
-    ratingsCount: 0,
-    description: description || "Description forthcoming.",
-    cover: covers[Math.floor(Math.random() * covers.length)]!,
-    addedAt: new Date().toISOString().slice(0, 10),
-    reads: 0,
-    featured: false,
-  });
-  revalidatePath("/books");
-  revalidatePath("/admin");
-  revalidatePath("/");
-  return { success: "Book added to the catalog." };
-}
-
-export async function trackReadAction(kind: ResourceKind, id: string) {
-  if (kind === "book") await incrementBookReads(id);
-  else await incrementPaperReads(id);
-  await incrementMonthlyReads(kind === "book" ? "books" : "papers");
-
-  const session = await auth();
-  if (session?.user?.id) {
+  // Read counts and activity are recorded on successful file open. TrackRead only keeps library history.
+  if (session?.user?.id && isActiveAccount(member)) {
     await recordReading(session.user.id, id, kind);
     revalidatePath("/library");
   }
 }
 
 export async function toggleLibraryAction(list: "saved" | "favorites", resourceId: string, kind: ResourceKind) {
+  if ((list !== "saved" && list !== "favorites") || !isResourceId(resourceId) || !isResourceKind(kind)) return;
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
-  await toggleLibraryList(session.user.id, list, resourceId, kind);
+  const member = await requireActiveAccount(session.user.id);
+  if (!member) return;
+  const result = await toggleLibraryList(session.user.id, list, resourceId, kind);
+  const verb = list === "saved" ? (result.added ? "saved" : "removed from saved") : (result.added ? "favorited" : "removed from favorites");
+  await recordActivity({
+    actorId: session.user.id,
+    action: `library.${list}_${result.added ? "added" : "removed"}`,
+    targetKind: kind,
+    targetId: resourceId,
+    detail: `${kind} ${verb}`,
+  });
   revalidatePath("/library");
   revalidatePath(kind === "book" ? `/books/${resourceId}` : `/research/${resourceId}`);
 }

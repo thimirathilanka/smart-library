@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PaperCard } from "@/components/papers/PaperCard";
-import type { ResearchPaper } from "@/lib/types";
+import type { AccessType, ResearchPaper } from "@/lib/types";
 
 export function PaperCatalog({
   papers,
@@ -12,10 +12,14 @@ export function PaperCatalog({
   initialQuery?: string;
 }) {
   const [query, setQuery] = useState(initialQuery);
+  useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
   const [field, setField] = useState("all");
   const [author, setAuthor] = useState("all");
   const [year, setYear] = useState("all");
   const [keyword, setKeyword] = useState("all");
+  const [access, setAccess] = useState<"all" | AccessType>("all");
 
   const authors = useMemo(
     () => Array.from(new Set(papers.flatMap((paper) => paper.authors))).sort(),
@@ -35,14 +39,15 @@ export function PaperCatalog({
   );
 
   const filtered = papers.filter((paper) => {
-    const haystack = `${paper.title} ${paper.authors.join(" ")} ${paper.keywords.join(" ")} ${paper.abstract}`.toLowerCase();
+    const haystack = `${paper.title} ${paper.authors.join(" ")} ${paper.keywords.join(" ")} ${paper.abstract} ${paper.aiSummary ?? ""}`.toLowerCase();
     const matchesQuery = !query.trim() || haystack.includes(query.trim().toLowerCase());
     return (
       matchesQuery &&
       (field === "all" || paper.field === field) &&
       (author === "all" || paper.authors.includes(author)) &&
       (year === "all" || paper.year === Number(year)) &&
-      (keyword === "all" || paper.keywords.includes(keyword))
+      (keyword === "all" || paper.keywords.includes(keyword)) &&
+      (access === "all" || paper.access === access)
     );
   });
 
@@ -83,6 +88,15 @@ export function PaperCatalog({
           onChange={setKeyword}
           options={keywords.map((item) => ({ value: item, label: item }))}
         />
+        <Select
+          label="Access"
+          value={access}
+          onChange={(value) => setAccess(value as "all" | AccessType)}
+          options={[
+            { value: "open", label: "Open Access" },
+            { value: "members", label: "Members only" },
+          ]}
+        />
         <button
           type="button"
           className="mt-5 text-sm text-navy-mid hover:underline"
@@ -92,6 +106,7 @@ export function PaperCatalog({
             setAuthor("all");
             setYear("all");
             setKeyword("all");
+            setAccess("all");
           }}
         >
           Clear search
@@ -103,7 +118,7 @@ export function PaperCatalog({
         </p>
         {filtered.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-line bg-white py-16 text-center text-muted">
-            No papers match this search.
+            {papers.length === 0 ? "No papers in the catalog yet." : "No papers match this search."}
           </div>
         ) : (
           filtered.map((paper) => <PaperCard key={paper._id} paper={paper} />)

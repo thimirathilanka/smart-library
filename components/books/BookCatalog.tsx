@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LayoutGrid, List } from "lucide-react";
 import { BookCard } from "@/components/books/BookCard";
 import type { AccessType, Book } from "@/lib/types";
@@ -14,6 +14,9 @@ export function BookCatalog({
   initialQuery?: string;
 }) {
   const [query, setQuery] = useState(initialQuery);
+  useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
   const [category, setCategory] = useState("all");
   const [author, setAuthor] = useState("all");
   const [year, setYear] = useState("all");
@@ -34,7 +37,7 @@ export function BookCatalog({
   );
 
   const filtered = books.filter((book) => {
-    const haystack = `${book.title} ${book.subtitle ?? ""} ${book.author} ${book.category}`.toLowerCase();
+    const haystack = `${book.title} ${book.subtitle ?? ""} ${book.author} ${book.category} ${book.aiSummary ?? ""}`.toLowerCase();
     const matchesQuery = !query.trim() || haystack.includes(query.trim().toLowerCase());
     return (
       matchesQuery &&
@@ -132,7 +135,7 @@ export function BookCatalog({
         </div>
         {filtered.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-line bg-white py-16 text-center text-muted">
-            No books match these filters.
+            {books.length === 0 ? "No books in the catalog yet." : "No books match these filters."}
           </div>
         ) : layout === "grid" ? (
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">

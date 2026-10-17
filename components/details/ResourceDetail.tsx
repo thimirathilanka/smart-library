@@ -1,13 +1,15 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
-import { BookOpen, Bookmark, Calendar, FileText, Hash, Languages, Quote } from "lucide-react";
+import { BookOpen, Bookmark, Calendar, FileText, Hash, Languages, LockKeyhole, Quote, Sparkles } from "lucide-react";
 import { BookCover } from "@/components/ui/BookCover";
+import { PaperCover } from "@/components/ui/PaperCover";
 import { AccessBadge } from "@/components/ui/AccessBadge";
 import { RatingStars } from "@/components/ui/RatingStars";
+import { ResourceRatingForm } from "@/components/details/ResourceRatingForm";
 import { CitationBlock } from "@/components/details/CitationBlock";
 import { BookCard } from "@/components/books/BookCard";
 import { PaperCard } from "@/components/papers/PaperCard";
 import { LibraryActions } from "@/components/library/LibraryActions";
+import { ReadAccessLink } from "@/components/details/ReadAccessLink";
 import { formatNumber } from "@/lib/format";
 import type { Book, ResearchPaper } from "@/lib/types";
 
@@ -15,33 +17,58 @@ export function BookDetail({
   book,
   related,
   signedIn = false,
+  hasMembership = false,
+  isAdmin = false,
+  promptLocked = false,
   saved = false,
   favorited = false,
+  userRating = 0,
+  pageCount,
 }: {
   book: Book;
   related: Book[];
   signedIn?: boolean;
+  hasMembership?: boolean;
+  isAdmin?: boolean;
+  promptLocked?: boolean;
   saved?: boolean;
   favorited?: boolean;
+  userRating?: number;
+  pageCount?: number;
 }) {
+  const canOpen = book.access === "open" || hasMembership || isAdmin;
+  const membersOnly = book.access === "members" && !canOpen;
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="grid gap-10 lg:grid-cols-[280px_1fr]">
         <div>
           <BookCover book={book} size="hero" className="mx-auto" />
-          <Link
+          <ReadAccessLink
             href={`/books/${book._id}/read`}
+            requiresMembership={book.access === "members"}
+            hasMembership={canOpen}
+            signedIn={signedIn}
+            openOnMount={promptLocked}
+            preview={{
+              kicker: `${book.publisher} · ${book.year}`,
+              title: book.title,
+              byline: book.author,
+              paragraphs: [
+                { text: book.description },
+              ],
+            }}
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-navy py-3 text-sm font-medium text-white hover:bg-navy-mid"
           >
-            <BookOpen className="size-4" />
-            Read online
-          </Link>
+            {membersOnly ? <LockKeyhole className="size-4" /> : <BookOpen className="size-4" />}
+            {membersOnly ? "Members only" : "Read online"}
+          </ReadAccessLink>
           <LibraryActions
             resourceId={book._id}
             kind="book"
             saved={saved}
             favorited={favorited}
             signedIn={signedIn}
+            callbackUrl={`/books/${book._id}`}
           />
         </div>
         <div>
@@ -57,13 +84,19 @@ export function BookDetail({
             <AccessBadge access={book.access} />
             <RatingStars rating={book.rating} count={book.ratingsCount} />
           </div>
+          <ResourceRatingForm kind="book" resourceId={book._id} signedIn={signedIn} userRating={userRating} />
           <p className="mt-6 max-w-3xl text-base leading-8 text-muted">{book.description}</p>
+          {book.aiSummary && canOpen ? (
+            <AiSummaryCallout summary={book.aiSummary} />
+          ) : null}
           <dl className="mt-8 grid gap-4 rounded-2xl border border-line bg-white p-5 sm:grid-cols-2">
-            <Meta icon={<Hash className="size-4" />} label="ISBN" value={book.isbn} />
+            {book.isbn ? <Meta icon={<Hash className="size-4" />} label="ISBN" value={book.isbn} /> : null}
             <Meta icon={<Quote className="size-4" />} label="Publisher" value={book.publisher} />
             <Meta icon={<Calendar className="size-4" />} label="Year" value={String(book.year)} />
-            <Meta icon={<FileText className="size-4" />} label="Pages" value={String(book.pages)} />
-            <Meta icon={<Languages className="size-4" />} label="Language" value={book.language} />
+            <Meta icon={<FileText className="size-4" />} label="Pages" value={String(pageCount ?? book.pages)} />
+            {book.language?.trim() ? (
+              <Meta icon={<Languages className="size-4" />} label="Language" value={book.language} />
+            ) : null}
             <Meta icon={<Bookmark className="size-4" />} label="Reads" value={formatNumber(book.reads)} />
           </dl>
           <div className="mt-6">
@@ -89,19 +122,29 @@ export function PaperDetail({
   paper,
   related,
   signedIn = false,
+  hasMembership = false,
+  isAdmin = false,
+  promptLocked = false,
   saved = false,
   favorited = false,
+  userRating = 0,
 }: {
   paper: ResearchPaper;
   related: ResearchPaper[];
   signedIn?: boolean;
+  hasMembership?: boolean;
+  isAdmin?: boolean;
+  promptLocked?: boolean;
   saved?: boolean;
   favorited?: boolean;
+  userRating?: number;
 }) {
+  const canOpen = paper.access === "open" || hasMembership || isAdmin;
+  const membersOnly = paper.access === "members" && !canOpen;
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
+        <div className="paper-preview overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
           <div className="border-b border-line bg-paper px-6 py-4 text-xs tracking-[0.18em] text-muted uppercase">
             In-browser preview
           </div>
@@ -119,6 +162,7 @@ export function PaperDetail({
           </div>
         </div>
         <div>
+          <PaperCover paper={paper} size="sm" className="mb-5 h-40 w-28" />
           <div className="flex flex-wrap gap-2">
             <AccessBadge access={paper.access} />
             <span className="rounded-full bg-paper px-2.5 py-0.5 text-xs text-navy-mid ring-1 ring-line">
@@ -127,13 +171,36 @@ export function PaperDetail({
           </div>
           <h1 className="mt-3 font-serif text-3xl text-navy">{paper.title}</h1>
           <p className="mt-2 text-navy-mid">{paper.authors.join(" · ")}</p>
-          <LinkCta href={`/research/${paper._id}/read`} />
+          <div className="mt-3">
+            <RatingStars rating={paper.rating ?? 0} count={paper.ratingsCount ?? 0} />
+          </div>
+          <ResourceRatingForm kind="paper" resourceId={paper._id} signedIn={signedIn} userRating={userRating} />
+          <ReadAccessLink
+            href={`/research/${paper._id}/read`}
+            requiresMembership={paper.access === "members"}
+            hasMembership={canOpen}
+            signedIn={signedIn}
+            openOnMount={promptLocked}
+            preview={{
+              kicker: `${paper.venue} · ${paper.year}`,
+              title: paper.title,
+              byline: paper.authors.join(", "),
+              paragraphs: [
+                { label: "Abstract.", text: paper.abstract },
+              ],
+            }}
+            className="mt-5 inline-flex items-center gap-2 rounded-full bg-navy px-5 py-2.5 text-sm font-medium text-white hover:bg-navy-mid"
+          >
+            {membersOnly ? <LockKeyhole className="size-4" /> : <FileText className="size-4" />}
+            {membersOnly ? "Members only" : "Read online"}
+          </ReadAccessLink>
           <LibraryActions
             resourceId={paper._id}
             kind="paper"
             saved={saved}
             favorited={favorited}
             signedIn={signedIn}
+            callbackUrl={`/research/${paper._id}`}
           />
           <section className="mt-6">
             <h2 className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">
@@ -141,6 +208,9 @@ export function PaperDetail({
             </h2>
             <p className="mt-2 text-sm leading-7 text-muted">{paper.abstract}</p>
           </section>
+          {paper.aiSummary && canOpen ? (
+            <AiSummaryCallout summary={paper.aiSummary} />
+          ) : null}
           <div className="mt-4 flex flex-wrap gap-1.5">
             {paper.keywords.map((keyword) => (
               <span key={keyword} className="rounded-full bg-paper px-2.5 py-1 text-[11px] text-navy-mid ring-1 ring-line">
@@ -151,8 +221,8 @@ export function PaperDetail({
           <dl className="mt-6 grid gap-3 rounded-2xl border border-line bg-white p-5">
             <Meta label="Venue" value={`${paper.venue} (${paper.venueType})`} />
             <Meta label="Published" value={paper.publishedAt} />
-            <Meta label="Pages" value={paper.pages} />
-            <Meta label="DOI" value={paper.doi} />
+            {paper.pages?.trim() ? <Meta label="Pages" value={paper.pages} /> : null}
+            {paper.doi ? <Meta label="DOI" value={paper.doi} /> : null}
             <Meta label="Citations" value={formatNumber(paper.citations)} />
           </dl>
           <div className="mt-6">
@@ -174,15 +244,15 @@ export function PaperDetail({
   );
 }
 
-function LinkCta({ href }: { href: string }) {
+function AiSummaryCallout({ summary }: { summary: string }) {
   return (
-    <Link
-      href={href}
-      className="mt-5 inline-flex items-center gap-2 rounded-full bg-navy px-5 py-2.5 text-sm font-medium text-white hover:bg-navy-mid"
-    >
-      <FileText className="size-4" />
-      Read online
-    </Link>
+    <section className="mt-6 max-w-3xl rounded-2xl border border-gold/35 border-l-4 border-l-gold bg-gold/5 p-5 sm:p-6">
+      <div className="flex items-center gap-2.5">
+        <Sparkles className="size-4 text-gold" aria-hidden="true" />
+        <h2 className="font-serif text-xl text-navy">AI summary</h2>
+      </div>
+      <p className="mt-3 whitespace-pre-line text-base leading-7 text-ink/85">{summary}</p>
+    </section>
   );
 }
 

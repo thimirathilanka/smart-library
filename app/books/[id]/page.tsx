@@ -2,7 +2,9 @@ import { notFound } from "next/navigation";
 import { BookDetail } from "@/components/details/ResourceDetail";
 import { getBook, relatedBooks } from "@/lib/data/books";
 import { auth } from "@/auth";
-import { getMemberLibrary } from "@/lib/data/members";
+import { getMemberById, hasActiveMembership } from "@/lib/data/members";
+import { getUserResourceRating } from "@/lib/data/ratings";
+import { getPdfPageCount } from "@/lib/ai/pdf-excerpt";
 
 export async function generateMetadata({ params }: PageProps<"/books/[id]">) {
   const { id } = await params;
@@ -10,20 +12,37 @@ export async function generateMetadata({ params }: PageProps<"/books/[id]">) {
   return { title: book?.title ?? "Book" };
 }
 
-export default async function BookPage({ params }: PageProps<"/books/[id]">) {
+export default async function BookPage({
+  params,
+  searchParams,
+}: PageProps<"/books/[id]">) {
   const { id } = await params;
+  const query = await searchParams;
   const book = await getBook(id);
   if (!book) notFound();
   const session = await auth();
-  const library = session?.user?.id ? await getMemberLibrary(session.user.id) : null;
+  const [member, related, userRating, pageCount] = await Promise.all([
+    session?.user?.id ? getMemberById(session.user.id) : Promise.resolve(null),
+    relatedBooks(book),
+    session?.user?.id ? getUserResourceRating(session.user.id, "book", book._id) : Promise.resolve(0),
+    getPdfPageCount(book.fileId),
+  ]);
+  const library = member?.library;
+  const hasMembership = hasActiveMembership(member);
+  const isAdmin = Boolean(member?.status === "Active" && member.isAdmin);
 
   return (
     <BookDetail
       book={book}
-      related={await relatedBooks(book)}
+      related={related}
       signedIn={Boolean(session?.user)}
+      hasMembership={hasMembership}
+      isAdmin={isAdmin}
+      promptLocked={query.locked === "1"}
       saved={library?.saved.some((item) => item.resourceId === book._id) ?? false}
       favorited={library?.favorites.some((item) => item.resourceId === book._id) ?? false}
+      userRating={userRating}
+      pageCount={pageCount ?? book.pages}
     />
   );
 }

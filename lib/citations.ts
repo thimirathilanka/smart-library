@@ -19,13 +19,16 @@ function authorList(authors: string[]) {
 }
 
 export function paperAPA(paper: ResearchPaper) {
-  return `${authorList(paper.authors)} (${paper.year}). ${paper.title}. ${paper.venue}. https://doi.org/${paper.doi}`;
+  const doi = paper.doi ? ` https://doi.org/${paper.doi}` : "";
+  return `${authorList(paper.authors)} (${paper.year}). ${paper.title}. ${paper.venue}.${doi}`;
 }
 
 export function paperMLA(paper: ResearchPaper) {
-  return `${authorList(paper.authors)}. "${paper.title}." ${paper.venue}, ${paper.year}, pp. ${paper.pages}.`;
+  const pages = paper.pages?.trim() ? `, pp. ${paper.pages}` : "";
+  return `${authorList(paper.authors)}. "${paper.title}." ${paper.venue}, ${paper.year}${pages}.`;
 }
 
 export function paperChicago(paper: ResearchPaper) {
-  return `${authorList(paper.authors)}. "${paper.title}." ${paper.venue} (${paper.year}): ${paper.pages}.`;
+  const pages = paper.pages?.trim() ? `: ${paper.pages}` : "";
+  return `${authorList(paper.authors)}. "${paper.title}." ${paper.venue} (${paper.year})${pages}.`;
 }

@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
+import { getMemberById, hasActiveMembership } from "@/lib/data/members";
 
 export const authConfig = {
   trustHost: true,
@@ -10,8 +11,11 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request }) {
       const { pathname } = request.nextUrl;
-      const user = auth?.user as { isAdmin?: boolean } | undefined;
+      const user = auth?.user as
+        | { isAdmin?: boolean; isAuthor?: boolean; accountActive?: boolean }
+        | undefined;
       const isLoggedIn = Boolean(auth?.user);
+      const accountActive = user?.accountActive !== false;
       const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/register");
 
       if (isAuthPage) {
@@ -19,10 +23,15 @@ export const authConfig = {
         return true;
       }
       if (
-        (pathname.startsWith("/library") || pathname.startsWith("/membership")) &&
-        !isLoggedIn
+        pathname.startsWith("/library") ||
+        pathname.startsWith("/membership") ||
+        pathname.startsWith("/author")
       ) {
-        return false;
+        if (!isLoggedIn) return false;
+        if (!accountActive) return Response.redirect(new URL("/", request.nextUrl));
+      }
+      if (pathname.startsWith("/author") && !user?.isAuthor) {
+        return Response.redirect(new URL("/", request.nextUrl));
       }
       if (pathname.startsWith("/admin") && !user?.isAdmin) {
         if (!isLoggedIn) return false;
@@ -30,12 +39,21 @@ export const authConfig = {
       }
       return true;
     },
-    jwt({ token, user }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.isMember = user.isMember;
         token.isAdmin = user.isAdmin;
+        token.isAuthor = user.isAuthor;
       }
+      if (!token.id) return token;
+
+      const member = await getMemberById(String(token.id));
+      const active = Boolean(member && member.status !== "Suspended");
+      token.accountActive = active;
+      token.isMember = hasActiveMembership(member);
+      token.isAdmin = Boolean(active && member?.isAdmin);
+      token.isAuthor = Boolean(active && member?.isAuthor);
       return token;
     },
     session({ session, token }) {
@@ -43,6 +61,8 @@ export const authConfig = {
         session.user.id = String(token.id ?? "");
         session.user.isMember = Boolean(token.isMember);
         session.user.isAdmin = Boolean(token.isAdmin);
+        session.user.isAuthor = Boolean(token.isAuthor);
+        session.user.accountActive = token.accountActive !== false;
       }
       return session;
     },
