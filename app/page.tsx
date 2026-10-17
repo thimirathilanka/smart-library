@@ -169,7 +169,7 @@ export default async function HomePage() {
               const title = item.book?.title ?? item.paper?.title ?? "Untitled resource";
               const href = item.book ? `/books/${item.book._id}` : `/research/${item.paper?._id}`;
               return (
-                <Link key={`${item.kind}-${title}`} href={href} className="group flex min-w-0 items-center gap-4 border-t border-white/10 py-3 transition hover:border-[#c7aa70]/50">
+                <Link key={`${item.kind}-${item.book?._id ?? item.paper?._id}`} href={href} className="group flex min-w-0 items-center gap-4 border-t border-white/10 py-3 transition hover:border-[#c7aa70]/50">
                   {item.book ? (
                     <BookCover book={item.book} size="sm" className="w-12 shrink-0 opacity-85 transition group-hover:opacity-100" />
                   ) : (
