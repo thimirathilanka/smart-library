@@ -142,6 +142,16 @@ export type UserLibrary = {
   favorites: LibraryItem[];
 };
 
+export type ContinueReadingItem = {
+  kind: ResourceKind;
+  resourceId: string;
+  bookmarkPage?: number;
+  totalPages?: number;
+  progress?: number;
+  book?: Book;
+  paper?: ResearchPaper;
+};
+
 export type MemberRecord = Member & {
   passwordHash: string;
   library: UserLibrary;

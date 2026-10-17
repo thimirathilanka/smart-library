@@ -1,10 +1,12 @@
 import { ArrowRight, BookOpen, FileText, Play, Users, Eye } from "lucide-react";
 import { auth } from "@/auth";
+import { ContinueReading } from "@/components/home/ContinueReading";
 import { FeaturedCarousel } from "@/components/home/FeaturedCarousel";
 import { BookCover } from "@/components/ui/BookCover";
 import { featuredBooks, mostViewedBook } from "@/lib/data/books";
 import { latestPapers } from "@/lib/data/papers";
 import { getLibraryStats, recentlyAdded } from "@/lib/data/catalog";
+import { getContinueReading } from "@/lib/data/members";
 import { getRecommendedBooks } from "@/lib/data/recommendations";
 import { formatCompact } from "@/lib/format";
 import Link from "next/link";
@@ -13,12 +15,13 @@ export default async function HomePage() {
   const session = await auth();
   const memberId = session?.user?.id;
 
-  const [statsData, shelf, lead, papers, recent] = await Promise.all([
+  const [statsData, shelf, lead, papers, recent, continueReading] = await Promise.all([
     getLibraryStats(),
     memberId ? getRecommendedBooks(memberId) : featuredBooks().then((books) => ({ books, personalized: false })),
     mostViewedBook(),
     latestPapers(),
     recentlyAdded(),
+    memberId ? getContinueReading(memberId) : Promise.resolve([]),
   ]);
   const stats = [
     { label: "Total books", value: statsData.totalBooks, icon: BookOpen },
@@ -122,6 +125,8 @@ export default async function HomePage() {
           );
         })}
       </section>
+
+      {continueReading.length > 0 ? <ContinueReading items={continueReading} /> : null}
 
       {shelfBooks.length > 0 ? (
         <section className="mx-auto max-w-7xl px-5 pt-12 pb-10 sm:px-8 lg:px-10">
