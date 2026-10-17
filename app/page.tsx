@@ -1,16 +1,21 @@
 import { ArrowRight, BookOpen, FileText, Play, Users, Eye } from "lucide-react";
+import { auth } from "@/auth";
 import { FeaturedCarousel } from "@/components/home/FeaturedCarousel";
 import { BookCover } from "@/components/ui/BookCover";
 import { featuredBooks, mostViewedBook } from "@/lib/data/books";
 import { latestPapers } from "@/lib/data/papers";
 import { getLibraryStats, recentlyAdded } from "@/lib/data/catalog";
+import { getRecommendedBooks } from "@/lib/data/recommendations";
 import { formatCompact } from "@/lib/format";
 import Link from "next/link";
 
 export default async function HomePage() {
-  const [statsData, featured, lead, papers, recent] = await Promise.all([
+  const session = await auth();
+  const memberId = session?.user?.id;
+
+  const [statsData, shelf, lead, papers, recent] = await Promise.all([
     getLibraryStats(),
-    featuredBooks(),
+    memberId ? getRecommendedBooks(memberId) : featuredBooks().then((books) => ({ books, personalized: false })),
     mostViewedBook(),
     latestPapers(),
     recentlyAdded(),
@@ -22,7 +27,8 @@ export default async function HomePage() {
     { label: "Reads this month", value: statsData.readsThisMonth, icon: Eye },
   ];
 
-  const shelfBooks = lead ? featured.filter((book) => book._id !== lead._id) : featured;
+  const personalized = shelf.personalized;
+  const shelfBooks = lead ? shelf.books.filter((book) => book._id !== lead._id) : shelf.books;
 
   return (
     <div className="overflow-hidden bg-[#101311] text-white">
@@ -122,7 +128,9 @@ export default async function HomePage() {
           <div className="mb-5 flex items-end justify-between gap-4">
             <div>
               <p className="mb-1 text-[10px] font-semibold tracking-[0.2em] text-[#e50914] uppercase">Curated for you</p>
-              <h2 className="font-serif text-2xl text-white sm:text-3xl">Featured books</h2>
+              <h2 className="font-serif text-2xl text-white sm:text-3xl">
+                {personalized ? "Based on your reading" : "Featured books"}
+              </h2>
             </div>
             <Link href="/books" className="group mb-1 inline-flex shrink-0 items-center gap-2 text-xs font-medium text-white/55 transition hover:text-white sm:text-sm">
               View all <ArrowRight className="size-4 transition group-hover:translate-x-1" />
