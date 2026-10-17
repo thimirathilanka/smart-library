@@ -84,8 +84,24 @@ function bookPagesOf(value: FormDataEntryValue | null): { ok: true; pages: numbe
 function paperPagesOf(value: FormDataEntryValue | null): { ok: true; pages: string } | { ok: false; error: string } {
   const pages = limited(String(value ?? ""), PAGES_LABEL_MAX, "Page range");
   if (!pages.ok) return pages;
-  if (!pages.value) return { ok: false, error: "Page range is required." };
   return { ok: true, pages: pages.value };
+}
+
+function venueTypeOf(
+  value: FormDataEntryValue | null,
+): { ok: true; venueType: "journal" | "conference" } | { ok: false; error: string } {
+  const raw = String(value ?? "").trim();
+  if (raw === "journal" || raw === "conference") return { ok: true, venueType: raw };
+  return { ok: false, error: "Choose journal or conference for the venue type." };
+}
+
+function citationsOf(value: FormDataEntryValue | null): { ok: true; citations: number } | { ok: false; error: string } {
+  const raw = String(value ?? "").trim();
+  if (!raw) return { ok: true, citations: 0 };
+  if (!/^\d+$/.test(raw)) return { ok: false, error: "Citations must be a whole number, or leave blank." };
+  const citations = Number(raw);
+  if (citations > 1_000_000) return { ok: false, error: "Citations must be 1000000 or fewer." };
+  return { ok: true, citations };
 }
 
 function keywordsOf(value: FormDataEntryValue | null): { ok: true; keywords: string[] } | { ok: false; error: string } {
@@ -112,7 +128,18 @@ export type BookEdits = Pick<
 
 export type PaperEdits = Pick<
   ResearchPaper,
-  "title" | "authors" | "abstract" | "field" | "year" | "doi" | "venue" | "pages" | "keywords" | "access"
+  | "title"
+  | "authors"
+  | "abstract"
+  | "field"
+  | "year"
+  | "doi"
+  | "venue"
+  | "venueType"
+  | "pages"
+  | "keywords"
+  | "citations"
+  | "access"
 >;
 
 export function editsFromForm(
@@ -157,11 +184,17 @@ export function editsFromForm(
     if (!venue.ok) return venue;
     if (!venue.value) return { ok: false, error: "Venue is required." };
 
+    const venueType = venueTypeOf(formData.get("venueType"));
+    if (!venueType.ok) return venueType;
+
     const pages = paperPagesOf(formData.get("pages"));
     if (!pages.ok) return pages;
 
     const keywords = keywordsOf(formData.get("keywords"));
     if (!keywords.ok) return keywords;
+
+    const citations = citationsOf(formData.get("citations"));
+    if (!citations.ok) return citations;
 
     const doi = doiOf(String(formData.get("doi") ?? ""));
     if (!doi.ok) return doi;
@@ -177,8 +210,10 @@ export function editsFromForm(
         year: year.year,
         doi: doi.doi,
         venue: venue.value,
+        venueType: venueType.venueType,
         pages: pages.pages,
         keywords: keywords.keywords,
+        citations: citations.citations,
         access,
       },
     };
@@ -200,7 +235,6 @@ export function editsFromForm(
 
   const language = limited(String(formData.get("language") ?? ""), LANGUAGE_MAX, "Language");
   if (!language.ok) return language;
-  if (!language.value) return { ok: false, error: "Language is required." };
 
   const pages = bookPagesOf(formData.get("pages"));
   if (!pages.ok) return pages;
@@ -248,8 +282,6 @@ export function draftFromForm(
         _id: slugId("p", parsed.edits.title),
         ...parsed.edits,
         publishedAt: addedAt,
-        venueType: "journal",
-        citations: 0,
         addedAt,
         reads: 0,
         submittedBy: options.submittedBy,

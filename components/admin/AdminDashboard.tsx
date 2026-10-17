@@ -95,7 +95,10 @@ export function AdminDashboard({
           <AnalyticsPanel
             bookCount={books.length}
             paperCount={papers.length}
-            activeMembers={members.filter((member) => member.status === "Active").length}
+            activeMembers={members.filter((member) => {
+              if (member.status !== "Active" || !member.isMember || !member.membershipExpiresAt) return false;
+              return member.membershipExpiresAt >= new Date().toISOString().slice(0, 10);
+            }).length}
             monthlyReads={monthlyReads}
             popularResources={popularResources}
           />
@@ -209,7 +212,7 @@ function AnalyticsPanel({
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label="Books in catalog" value={formatNumber(bookCount)} />
         <Stat label="Research papers" value={formatNumber(paperCount)} />
-        <Stat label="Active accounts" value={formatNumber(activeMembers)} />
+        <Stat label="Active members" value={formatNumber(activeMembers)} />
       </div>
       <div className="rounded-2xl border border-line bg-white p-5 shadow-sm">
         <h3 className="font-serif text-xl text-navy">Reads over time</h3>
@@ -371,8 +374,10 @@ function PapersTable({
               doi: paper.doi,
               field: paper.field,
               venue: paper.venue,
+              venueType: paper.venueType,
               pages: paper.pages,
               keywords: paper.keywords.join(", "),
+              citations: paper.citations,
               year: paper.year,
               access: paper.access,
               description: paper.abstract,

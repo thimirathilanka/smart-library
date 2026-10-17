@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { BookOpen, Clock, FileText } from "lucide-react";
 import { BookCover } from "@/components/ui/BookCover";
+import { PaperCover } from "@/components/ui/PaperCover";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/format";
 import type { Book, LibraryItem, ResearchPaper, ResourceKind, UserLibrary } from "@/lib/types";
@@ -156,7 +157,9 @@ function LibraryRow({
 }) {
   const removed = !book && !paper;
   const href = book ? `/books/${book._id}` : paper ? `/research/${paper._id}` : null;
-  const readBase = book ? `/books/${book._id}/read` : paper ? `/research/${paper._id}/read` : null;
+  const hasFile = Boolean(book?.fileId ?? paper?.fileId);
+  const readBase =
+    hasFile && book ? `/books/${book._id}/read` : hasFile && paper ? `/research/${paper._id}/read` : null;
   const readHref =
     readBase && item.bookmarkPage ? `${readBase}?page=${item.bookmarkPage}` : readBase;
   const progress = item.bookmarkPage && item.totalPages
@@ -167,15 +170,17 @@ function LibraryRow({
     <div className="flex gap-4 rounded-2xl border border-line bg-white p-4 shadow-sm">
       {book ? (
         <BookCover book={book} size="sm" className="w-16 shrink-0" />
+      ) : paper ? (
+        <PaperCover paper={paper} size="sm" className="w-16 shrink-0" />
       ) : (
         <div className="flex w-16 shrink-0 items-center justify-center rounded-sm bg-navy text-[10px] tracking-widest text-white uppercase">
-          PDF
+          —
         </div>
       )}
       <div className="min-w-0 flex-1">
         <p className="text-[11px] tracking-wide text-navy-soft uppercase">{item.kind}</p>
         {removed || !href ? (
-          <p className="font-serif text-lg text-muted">Removed from the catalog</p>
+          <p className="font-serif text-lg text-muted">No longer in the catalog</p>
         ) : (
           <Link href={href} className="font-serif text-lg text-navy hover:text-navy-mid">
             {book?.title ?? paper?.title}
@@ -203,12 +208,19 @@ function LibraryRow({
           ) : null}
         </div>
       </div>
-      {readHref ? (
+      {removed ? null : readHref ? (
         <Link
           href={readHref}
           className="inline-flex self-center rounded-full bg-navy px-4 py-2 text-sm text-white hover:bg-navy-mid"
         >
           {item.bookmarkPage ? `Continue · p. ${item.bookmarkPage}` : "Continue"}
+        </Link>
+      ) : href ? (
+        <Link
+          href={href}
+          className="inline-flex self-center rounded-full border border-line bg-white px-4 py-2 text-sm text-navy hover:bg-paper"
+        >
+          View details
         </Link>
       ) : null}
     </div>

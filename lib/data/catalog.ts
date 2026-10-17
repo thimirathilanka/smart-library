@@ -25,10 +25,15 @@ export async function getLibraryStats(): Promise<LibraryStats> {
   const month = monthNames[now.getMonth()];
   const year = now.getFullYear();
   const current = await monthlyReads.findOne({ month, year });
+  const today = new Date().toISOString().slice(0, 10);
   const [totalBooks, researchPapers, activeMembers] = await Promise.all([
     books.countDocuments(withPublished<Book>({})),
     papers.countDocuments(withPublished<ResearchPaper>({})),
-    members.countDocuments({ status: "Active" }),
+    members.countDocuments({
+      status: "Active",
+      isMember: true,
+      membershipExpiresAt: { $gte: today },
+    }),
   ]);
   return {
     totalBooks,

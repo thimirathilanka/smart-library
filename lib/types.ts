@@ -24,7 +24,7 @@ export type BookRevision = RevisionMeta & {
   isbn: string;
   publisher: string;
   pages: number;
-  language: string;
+  language?: string;
   access: AccessType;
   description: string;
 };
@@ -37,8 +37,10 @@ export type PaperRevision = RevisionMeta & {
   year: number;
   doi: string;
   venue: string;
-  pages: string;
+  venueType: "journal" | "conference";
+  pages?: string;
   keywords: string[];
+  citations: number;
   access: AccessType;
 };
 
@@ -53,7 +55,7 @@ export type Book = {
   publisher: string;
   isbn: string;
   pages: number;
-  language: string;
+  language?: string;
   access: AccessType;
   rating: number;
   ratingsCount: number;
@@ -87,7 +89,7 @@ export type ResearchPaper = {
   venue: string;
   venueType: "journal" | "conference";
   citations: number;
-  pages: string;
+  pages?: string;
   doi: string;
   access: AccessType;
   rating?: number;

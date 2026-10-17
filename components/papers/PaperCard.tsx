@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FileText } from "lucide-react";
 import type { ResearchPaper } from "@/lib/types";
 import { AccessBadge } from "@/components/ui/AccessBadge";
+import { PaperCover } from "@/components/ui/PaperCover";
 import { RatingStars } from "@/components/ui/RatingStars";
 import { formatDate, formatNumber } from "@/lib/format";
 
@@ -9,13 +10,7 @@ export function PaperCard({ paper }: { paper: ResearchPaper }) {
   return (
     <article className="rounded-2xl border border-line bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-navy/20 hover:shadow-md sm:p-6">
       <div className="flex gap-4">
-        {paper.coverId ? (
-          <img
-            src={`/api/research/${paper._id}/cover`}
-            alt=""
-            className="h-28 w-20 shrink-0 rounded-sm object-cover"
-          />
-        ) : null}
+        <PaperCover paper={paper} size="sm" className="h-28 w-20 shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-semibold tracking-[0.16em] text-navy-soft uppercase">

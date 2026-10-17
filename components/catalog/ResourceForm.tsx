@@ -22,8 +22,10 @@ export type ResourceFormValues = {
   publisher?: string;
   language?: string;
   venue?: string;
+  venueType?: "journal" | "conference";
   pages?: string | number;
   keywords?: string;
+  citations?: number;
   year: number;
   access: AccessType;
   description: string;
@@ -45,8 +47,10 @@ type EditableValues = {
   publisher: string;
   language: string;
   venue: string;
+  venueType: "journal" | "conference";
   pages: string;
   keywords: string;
+  citations: string;
   year: string;
   access: AccessType;
   description: string;
@@ -65,8 +69,10 @@ function valuesFromInitial(initial?: ResourceFormValues): EditableValues {
     publisher: initial?.publisher ?? "",
     language: initial?.language ?? "",
     venue: initial?.venue ?? "",
-    pages: initial?.pages != null ? String(initial.pages) : "",
+    venueType: initial?.venueType ?? "journal",
+    pages: initial?.pages != null && initial.pages !== "" ? String(initial.pages) : "",
     keywords: initial?.keywords ?? "",
+    citations: initial?.citations != null && initial.citations !== 0 ? String(initial.citations) : "",
     year: initial ? String(initial.year) : "",
     access: initial?.access ?? "open",
     description: initial?.description ?? "",
@@ -431,7 +437,7 @@ export function ResourceForm({
           <Field label="Venue" name="venue" value={values.venue} onValueChange={changeValue} required maxLength={200} />
         )}
         {selected === "book" ? (
-          <Field label="Language" name="language" value={values.language} onValueChange={changeValue} required maxLength={80} />
+          <Field label="Language" name="language" value={values.language} onValueChange={changeValue} maxLength={80} />
         ) : (
           <Field
             label="Keywords (comma-separated)"
@@ -454,8 +460,33 @@ export function ResourceForm({
             onValueChange={changeValue}
           />
         ) : (
-          <Field label="Page range" name="pages" value={values.pages} onValueChange={changeValue} required maxLength={40} />
+          <Field label="Page range" name="pages" value={values.pages} onValueChange={changeValue} maxLength={40} />
         )}
+        {selected === "paper" ? (
+          <label className="text-xs font-semibold tracking-wide text-muted uppercase">
+            Venue type
+            <select
+              name="venueType"
+              value={values.venueType}
+              onChange={(event) => changeValue("venueType", event.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm font-normal text-ink"
+            >
+              <option value="journal">Journal</option>
+              <option value="conference">Conference</option>
+            </select>
+          </label>
+        ) : null}
+        {selected === "paper" ? (
+          <Field
+            label="Citations"
+            name="citations"
+            type="number"
+            min={0}
+            max={1000000}
+            value={values.citations}
+            onValueChange={changeValue}
+          />
+        ) : null}
         <Field
           label="Year"
           name="year"

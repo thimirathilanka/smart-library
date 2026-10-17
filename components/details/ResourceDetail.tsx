@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { BookOpen, Bookmark, Calendar, FileText, Hash, Languages, LockKeyhole, Quote, Sparkles } from "lucide-react";
 import { BookCover } from "@/components/ui/BookCover";
+import { PaperCover } from "@/components/ui/PaperCover";
 import { AccessBadge } from "@/components/ui/AccessBadge";
 import { RatingStars } from "@/components/ui/RatingStars";
 import { ResourceRatingForm } from "@/components/details/ResourceRatingForm";
@@ -93,7 +94,9 @@ export function BookDetail({
             <Meta icon={<Quote className="size-4" />} label="Publisher" value={book.publisher} />
             <Meta icon={<Calendar className="size-4" />} label="Year" value={String(book.year)} />
             <Meta icon={<FileText className="size-4" />} label="Pages" value={String(pageCount ?? book.pages)} />
-            <Meta icon={<Languages className="size-4" />} label="Language" value={book.language} />
+            {book.language?.trim() ? (
+              <Meta icon={<Languages className="size-4" />} label="Language" value={book.language} />
+            ) : null}
             <Meta icon={<Bookmark className="size-4" />} label="Reads" value={formatNumber(book.reads)} />
           </dl>
           <div className="mt-6">
@@ -159,13 +162,7 @@ export function PaperDetail({
           </div>
         </div>
         <div>
-          {paper.coverId ? (
-            <img
-              src={`/api/research/${paper._id}/cover`}
-              alt=""
-              className="mb-5 h-40 w-28 rounded-sm object-cover shadow-md"
-            />
-          ) : null}
+          <PaperCover paper={paper} size="sm" className="mb-5 h-40 w-28" />
           <div className="flex flex-wrap gap-2">
             <AccessBadge access={paper.access} />
             <span className="rounded-full bg-paper px-2.5 py-0.5 text-xs text-navy-mid ring-1 ring-line">
@@ -224,7 +221,7 @@ export function PaperDetail({
           <dl className="mt-6 grid gap-3 rounded-2xl border border-line bg-white p-5">
             <Meta label="Venue" value={`${paper.venue} (${paper.venueType})`} />
             <Meta label="Published" value={paper.publishedAt} />
-            <Meta label="Pages" value={paper.pages} />
+            {paper.pages?.trim() ? <Meta label="Pages" value={paper.pages} /> : null}
             {paper.doi ? <Meta label="DOI" value={paper.doi} /> : null}
             <Meta label="Citations" value={formatNumber(paper.citations)} />
           </dl>

@@ -24,9 +24,11 @@ export function paperAPA(paper: ResearchPaper) {
 }
 
 export function paperMLA(paper: ResearchPaper) {
-  return `${authorList(paper.authors)}. "${paper.title}." ${paper.venue}, ${paper.year}, pp. ${paper.pages}.`;
+  const pages = paper.pages?.trim() ? `, pp. ${paper.pages}` : "";
+  return `${authorList(paper.authors)}. "${paper.title}." ${paper.venue}, ${paper.year}${pages}.`;
 }
 
 export function paperChicago(paper: ResearchPaper) {
-  return `${authorList(paper.authors)}. "${paper.title}." ${paper.venue} (${paper.year}): ${paper.pages}.`;
+  const pages = paper.pages?.trim() ? `: ${paper.pages}` : "";
+  return `${authorList(paper.authors)}. "${paper.title}." ${paper.venue} (${paper.year})${pages}.`;
 }

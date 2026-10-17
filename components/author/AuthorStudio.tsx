@@ -76,7 +76,7 @@ export function AuthorStudio({ submissions }: { submissions: AuthorSubmission[] 
         {submissions.length === 0 ? (
           <div className="mt-5 rounded-xl border border-dashed border-line bg-paper/50 px-5 py-8 text-center">
             <p className="font-medium text-navy">No submissions yet</p>
-            <p className="mt-1 text-sm text-muted">Start with a new book or research paper below.</p>
+            <p className="mt-1 text-sm text-muted">Use the new submission form to add a book or research paper.</p>
           </div>
         ) : (
           <div className="mt-5 grid gap-4">
@@ -239,20 +239,57 @@ function filesForEdit(item: AuthorSubmission, mode: "submission" | "revision"): 
 
 function WithdrawButton({ item }: { item: AuthorSubmission }) {
   const [state, action, pending] = useActionState(withdrawResourceAction, {});
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    if (state.success) dialogRef.current?.close();
+  }, [state.success]);
+
   return (
-    <form action={action}>
-      <input type="hidden" name="id" value={item.id} />
-      <input type="hidden" name="kind" value={item.kind} />
+    <div>
       <button
-        type="submit"
-        disabled={pending}
-        className="rounded-full border border-line px-3 py-1.5 text-xs font-medium text-navy hover:bg-paper disabled:opacity-60"
+        type="button"
+        onClick={() => dialogRef.current?.showModal()}
+        className="rounded-full border border-line px-3 py-1.5 text-xs font-medium text-navy hover:bg-paper"
       >
-        {pending ? "Withdrawing…" : "Withdraw from review"}
+        Withdraw from review
       </button>
-      {state.error ? <p className="mt-1 text-xs text-red-700">{state.error}</p> : null}
-      {state.success ? <p className="mt-1 text-xs text-emerald-800">{state.success}</p> : null}
-    </form>
+      <dialog
+        ref={dialogRef}
+        onClick={(event) => {
+          if (event.target === dialogRef.current && !pending) dialogRef.current?.close();
+        }}
+        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:bg-navy/45"
+      >
+        <form action={action} className="p-5">
+          <input type="hidden" name="id" value={item.id} />
+          <input type="hidden" name="kind" value={item.kind} />
+          <h3 className="font-serif text-xl text-navy">Withdraw from review?</h3>
+          <p className="mt-3 text-sm leading-6 text-muted">
+            Withdraw <span className="font-medium text-navy">{item.title}</span> from the review queue? You can edit and resubmit it later.
+          </p>
+          {state.error ? <p className="mt-3 text-sm text-red-700">{state.error}</p> : null}
+          {state.success ? <p className="mt-3 text-sm text-emerald-800">{state.success}</p> : null}
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => dialogRef.current?.close()}
+              disabled={pending}
+              className="rounded-full border border-line px-4 py-2 text-sm font-medium text-navy disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={pending}
+              className="rounded-full bg-navy px-4 py-2 text-sm font-medium text-white hover:bg-navy-mid disabled:opacity-60"
+            >
+              {pending ? "Withdrawing…" : "Withdraw"}
+            </button>
+          </div>
+        </form>
+      </dialog>
+    </div>
   );
 }
 
