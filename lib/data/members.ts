@@ -1,8 +1,10 @@
 import "server-only";
 
+import { listBooks } from "@/lib/data/books";
+import { listPapers } from "@/lib/data/papers";
 import { collections } from "@/lib/db";
 import { toPlain } from "@/lib/data/serialize";
-import type { LibraryItem, Member, MemberRecord, ResourceKind, UserLibrary } from "@/lib/types";
+import type { ContinueReadingItem, LibraryItem, Member, MemberRecord, ResourceKind, UserLibrary } from "@/lib/types";
 
 const emptyLibrary: UserLibrary = { saved: [], history: [], favorites: [] };
 
@@ -127,6 +129,50 @@ export async function createMember(member: MemberRecord) {
 export async function getMemberLibrary(id: string) {
   const member = await getMemberById(id);
   return toPlain(member?.library ?? emptyLibrary);
+}
+
+export async function getContinueReading(memberId: string, limit = 8): Promise<ContinueReadingItem[]> {
+  const [library, books, papers] = await Promise.all([
+    getMemberLibrary(memberId),
+    listBooks(),
+    listPapers(),
+  ]);
+
+  const booksById = new Map(books.map((book) => [book._id, book]));
+  const papersById = new Map(papers.map((paper) => [paper._id, paper]));
+  const items: ContinueReadingItem[] = [];
+
+  for (const entry of library.history) {
+    if (items.length >= limit) break;
+    if ((entry.progress ?? 0) >= 100) continue;
+
+    if (entry.kind === "book") {
+      const book = booksById.get(entry.resourceId);
+      if (!book?.fileId) continue;
+      items.push({
+        kind: "book",
+        resourceId: entry.resourceId,
+        bookmarkPage: entry.bookmarkPage,
+        totalPages: entry.totalPages,
+        progress: entry.progress,
+        book,
+      });
+      continue;
+    }
+
+    const paper = papersById.get(entry.resourceId);
+    if (!paper?.fileId) continue;
+    items.push({
+      kind: "paper",
+      resourceId: entry.resourceId,
+      bookmarkPage: entry.bookmarkPage,
+      totalPages: entry.totalPages,
+      progress: entry.progress,
+      paper,
+    });
+  }
+
+  return items;
 }
 
 function todayIso() {
