@@ -12,7 +12,7 @@ export async function GET(
   const paper = await getPaperForStaff(id);
   if (!paper) return new NextResponse("Not found", { status: 404 });
 
-  const { member, activeAdmin, activeAuthor } = await previewSession();
+  const { member, activeAdmin, activeAuthor } = await previewSession(request);
   const owner = isResourceOwner(activeAuthor, member?._id, paper.submittedBy);
   const published = !paper.publicationStatus || paper.publicationStatus === "published";
 

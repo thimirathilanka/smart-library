@@ -1,0 +1,18 @@
+import { preflight } from "@/lib/api/cors";
+import { filterPapers } from "@/lib/api/catalog-filter";
+import { jsonOk } from "@/lib/api/http";
+import { listPapers } from "@/lib/data/papers";
+
+export const runtime = "nodejs";
+
+export function OPTIONS(request: Request) {
+  return preflight(request);
+}
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const search = searchParams.get("q") ?? undefined;
+  const field = searchParams.get("field") ?? undefined;
+  const papers = filterPapers(await listPapers(), search, field);
+  return jsonOk(request, { papers });
+}
