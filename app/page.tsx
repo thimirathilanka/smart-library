@@ -35,6 +35,14 @@ export default async function HomePage() {
 
   return (
     <div className="overflow-hidden bg-[#101311] text-white">
+      {lead?.coverId ? (
+        <link
+          rel="preload"
+          as="image"
+          href={`/api/books/${lead._id}/cover`}
+          fetchPriority="high"
+        />
+      ) : null}
       <section className="relative isolate border-b border-white/10">
         {lead ? (
           <div
@@ -55,7 +63,7 @@ export default async function HomePage() {
             </div>
             {lead ? (
               <>
-                <p className="mb-3 text-sm font-medium text-white/65">Most viewed · {lead.category}</p>
+                <p className="mb-3 text-sm font-medium text-white/65">Most Popular 🔥 · {lead.category}</p>
                 <h1 className="max-w-xl font-serif text-4xl leading-[1.08] text-white sm:text-5xl lg:text-6xl">
                   {lead.title}
                 </h1>
@@ -102,10 +110,9 @@ export default async function HomePage() {
               href={`/books/${lead._id}`}
               aria-label={`Explore ${lead.title}`}
               className="group relative mx-auto hidden w-full max-w-[250px] animate-fade-up md:block lg:max-w-[290px]"
-              style={{ animationDelay: "120ms" }}
             >
               <div className="absolute -inset-x-12 -inset-y-10 -z-10 bg-black/30 blur-2xl" />
-              <BookCover book={lead} size="hero" className="!max-w-none rounded-[2px] shadow-[0_28px_70px_-24px_rgba(0,0,0,.9)] transition duration-500 group-hover:-translate-y-2 group-hover:rotate-1" />
+              <BookCover book={lead} size="hero" priority className="!max-w-none rounded-[2px] shadow-[0_28px_70px_-24px_rgba(0,0,0,.9)] transition duration-500 group-hover:-translate-y-2 group-hover:rotate-1" />
             </Link>
           ) : null}
         </div>
