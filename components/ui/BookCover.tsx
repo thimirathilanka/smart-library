@@ -5,6 +5,7 @@ type BookCoverProps = {
   book: Book;
   className?: string;
   size?: "sm" | "md" | "lg" | "hero";
+  priority?: boolean;
 };
 
 const sizes = {
@@ -14,7 +15,9 @@ const sizes = {
   hero: "aspect-[3/4] w-full max-w-[280px]",
 };
 
-export function BookCover({ book, className, size = "md" }: BookCoverProps) {
+export function BookCover({ book, className, size = "md", priority = false }: BookCoverProps) {
+  const isHighPriority = priority || size === "hero";
+
   if (book.coverId) {
     return (
       <div
@@ -23,11 +26,33 @@ export function BookCover({ book, className, size = "md" }: BookCoverProps) {
           sizes[size],
           className,
         )}
+        style={{
+          background: book.cover
+            ? `linear-gradient(155deg, ${book.cover.from} 0%, ${book.cover.to} 72%)`
+            : "#151917",
+        }}
       >
+        {/* Instant book backdrop placeholder: visible immediately before image finishes downloading */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 flex flex-col justify-between p-3 select-none pointer-events-none opacity-40"
+        >
+          <div className="absolute inset-y-0 left-0 w-[8px] bg-black/25" />
+          <p className="line-clamp-2 font-serif text-xs font-semibold leading-snug text-white">
+            {book.title}
+          </p>
+          <p className="text-[10px] tracking-wider text-white/70 uppercase">
+            {book.author}
+          </p>
+        </div>
+
         <img
           src={`/api/books/${book._id}/cover`}
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover"
+          alt={book.title || ""}
+          loading={isHighPriority ? "eager" : "lazy"}
+          decoding={isHighPriority ? "sync" : "async"}
+          fetchPriority={isHighPriority ? "high" : "auto"}
+          className="relative z-10 h-full w-full object-cover transition-opacity duration-300"
         />
       </div>
     );

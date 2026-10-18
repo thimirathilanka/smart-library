@@ -3,6 +3,7 @@ import { BookOpen, Bookmark, Calendar, FileText, Hash, Languages, LockKeyhole, Q
 import { BookCover } from "@/components/ui/BookCover";
 import { PaperCover } from "@/components/ui/PaperCover";
 import { AccessBadge } from "@/components/ui/AccessBadge";
+import { BackButton } from "@/components/ui/BackButton";
 import { RatingStars } from "@/components/ui/RatingStars";
 import { ResourceRatingForm } from "@/components/details/ResourceRatingForm";
 import { CitationBlock } from "@/components/details/CitationBlock";
@@ -39,7 +40,10 @@ export function BookDetail({
   const canOpen = book.access === "open" || hasMembership || isAdmin;
   const membersOnly = book.access === "members" && !canOpen;
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mb-6">
+        <BackButton fallbackHref="/books" />
+      </div>
       <div className="grid gap-10 lg:grid-cols-[280px_1fr]">
         <div>
           <BookCover book={book} size="hero" className="mx-auto" />
@@ -142,7 +146,10 @@ export function PaperDetail({
   const canOpen = paper.access === "open" || hasMembership || isAdmin;
   const membersOnly = paper.access === "members" && !canOpen;
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mb-6">
+        <BackButton fallbackHref="/research" />
+      </div>
       <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="paper-preview overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
           <div className="border-b border-line bg-paper px-6 py-4 text-xs tracking-[0.18em] text-muted uppercase">

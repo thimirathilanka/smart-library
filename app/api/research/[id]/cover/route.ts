@@ -12,16 +12,33 @@ export async function GET(
   const paper = await getPaperForStaff(id);
   if (!paper) return new NextResponse("Not found", { status: 404 });
 
-  const { member, activeAdmin, activeAuthor } = await previewSession(request);
-  const owner = isResourceOwner(activeAuthor, member?._id, paper.submittedBy);
+  const wantsRev = wantsRevision(request);
   const published = !paper.publicationStatus || paper.publicationStatus === "published";
 
-  if (wantsRevision(request)) {
+  // Fast path for published public covers (skips auth/session overhead & DB lookups)
+  if (!wantsRev && published) {
+    if (!paper.coverId) return new NextResponse("Not found", { status: 404 });
+    return storedFileResponse(paper.coverId, `${paper.title}-cover`, "image/jpeg", {
+      isPublic: true,
+      request,
+    });
+  }
+
+  const { member, activeAdmin, activeAuthor } = await previewSession(request);
+  const owner = isResourceOwner(activeAuthor, member?._id, paper.submittedBy);
+
+  if (wantsRev) {
     if (!paper.revision?.coverId || (!owner && !activeAdmin)) return new NextResponse("Not found", { status: 404 });
-    return storedFileResponse(paper.revision.coverId, `${paper.revision.title}-cover`, "image/jpeg");
+    return storedFileResponse(paper.revision.coverId, `${paper.revision.title}-cover`, "image/jpeg", {
+      isPublic: false,
+      request,
+    });
   }
 
   if (!paper.coverId) return new NextResponse("Not found", { status: 404 });
   if (!published && !owner && !activeAdmin) return new NextResponse("Not found", { status: 404 });
-  return storedFileResponse(paper.coverId, `${paper.title}-cover`, "image/jpeg");
+  return storedFileResponse(paper.coverId, `${paper.title}-cover`, "image/jpeg", {
+    isPublic: true,
+    request,
+  });
 }

@@ -65,7 +65,7 @@ function PdfPage({
   return (
     <canvas
       ref={canvasRef}
-      className="block shrink-0 bg-white shadow-[0_8px_30px_-12px_rgba(11,31,58,0.5)]"
+      className="m-auto block shrink-0 bg-white shadow-[0_8px_30px_-12px_rgba(11,31,58,0.5)]"
       aria-label={`${title}, page ${pageNumber}`}
     />
   );
@@ -239,7 +239,15 @@ export function PdfPageViewer({
   }
 
   useEffect(() => {
-    stageRef.current?.scrollTo({ top: 0, left: 0 });
+    const stage = stageRef.current;
+    if (!stage) return;
+    const centerHorizontalScroll = () => {
+      const scrollLeft = Math.max(0, (stage.scrollWidth - stage.clientWidth) / 2);
+      stage.scrollTo({ top: 0, left: scrollLeft });
+    };
+    centerHorizontalScroll();
+    const frameId = requestAnimationFrame(centerHorizontalScroll);
+    return () => cancelAnimationFrame(frameId);
   }, [pageNumber, zoomPercent]);
 
   return (
@@ -309,23 +317,25 @@ export function PdfPageViewer({
 
       <div
         ref={stageRef}
-        className={`flex overflow-auto p-3 sm:p-5${zoomPercent > 100 ? " items-start justify-start" : " items-center justify-center"}${isFullscreen ? " reader-fullscreen-stage min-h-0 flex-1" : " h-[min(68dvh,860px)] min-h-[26rem]"}`}
+        className={`flex overflow-auto p-3 sm:p-5${isFullscreen ? " reader-fullscreen-stage min-h-0 flex-1" : " h-[min(68dvh,860px)] min-h-[26rem]"}`}
       >
-        {viewerState === "loading" ? (
-          <div className="flex items-center gap-2 text-sm text-muted" role="status"><LoaderCircle className="size-4 animate-spin" /> Loading PDF…</div>
-        ) : viewerState === "error" ? (
-          <p className="max-w-sm text-center text-sm text-red-800" role="alert">{errorMessage}</p>
-        ) : pdf ? (
-          <PdfPage
-            key={`${src}-${pageNumber}`}
-            pdf={pdf}
-            pageNumber={pageNumber}
-            width={stageSize.width}
-            height={stageSize.height}
-            zoomPercent={zoomPercent}
-            title={title}
-          />
-        ) : null}
+        <div className="m-auto flex min-h-full min-w-full w-max h-max items-center justify-center">
+          {viewerState === "loading" ? (
+            <div className="flex items-center gap-2 text-sm text-muted" role="status"><LoaderCircle className="size-4 animate-spin" /> Loading PDF…</div>
+          ) : viewerState === "error" ? (
+            <p className="max-w-sm text-center text-sm text-red-800" role="alert">{errorMessage}</p>
+          ) : pdf ? (
+            <PdfPage
+              key={`${src}-${pageNumber}`}
+              pdf={pdf}
+              pageNumber={pageNumber}
+              width={stageSize.width}
+              height={stageSize.height}
+              zoomPercent={zoomPercent}
+              title={title}
+            />
+          ) : null}
+        </div>
       </div>
       {viewerState === "ready" ? (
         <nav aria-label="PDF page navigation" className="flex items-center justify-between border-t border-line bg-white px-3 py-3 sm:px-5">

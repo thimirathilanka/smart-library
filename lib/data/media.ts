@@ -41,7 +41,35 @@ export function isResourceOwner(activeAuthor: boolean, memberId: string | undefi
   return Boolean(activeAuthor && memberId && submittedBy && submittedBy === memberId);
 }
 
-export async function storedFileResponse(fileId: string, downloadName: string, fallbackType: string) {
+export type StoredFileOptions = {
+  cacheControl?: string;
+  isPublic?: boolean;
+  request?: Request;
+};
+
+export async function storedFileResponse(
+  fileId: string,
+  downloadName: string,
+  fallbackType: string,
+  options?: StoredFileOptions,
+) {
+  const etag = `"${fileId}"`;
+  const cacheControl =
+    options?.cacheControl ??
+    (options?.isPublic
+      ? "public, max-age=604800, stale-while-revalidate=86400"
+      : "private, no-store");
+
+  if (options?.request?.headers.get("if-none-match") === etag) {
+    return new Response(null, {
+      status: 304,
+      headers: {
+        ETag: etag,
+        "Cache-Control": cacheControl,
+      },
+    });
+  }
+
   const file = await openGridFsFile(fileId);
   if (!file) return new Response("Not found", { status: 404 });
   const contentType = file.contentType === "application/octet-stream" ? fallbackType : file.contentType;
@@ -49,8 +77,9 @@ export async function storedFileResponse(fileId: string, downloadName: string, f
     headers: {
       "Content-Type": contentType,
       "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(downloadName)}`,
-      "Cache-Control": "private, no-store",
+      "Cache-Control": cacheControl,
       "X-Content-Type-Options": "nosniff",
+      ETag: etag,
     },
   });
 }
