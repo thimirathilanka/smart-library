@@ -124,6 +124,9 @@ export type Member = {
   joinedAt: string;
   reads: number;
   status: "Active" | "Invited" | "Suspended";
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  autoRenew?: boolean;
 };
 
 export type LibraryItem = {

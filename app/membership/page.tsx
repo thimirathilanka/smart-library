@@ -98,10 +98,11 @@ export default async function MembershipPage() {
                   {expiresAt ? (
                     <p className="mb-3 text-center text-xs text-muted">
                       Access through {formatLongDate(expiresAt)}
+                      {member?.autoRenew ? " • Auto-renews monthly" : " • One-time pass"}
                     </p>
                   ) : null}
-                  <MembershipPurchase session={session} renewal />
-                  <MembershipCancel session={session} />
+                  <MembershipPurchase session={session} renewal autoRenewActive={Boolean(member?.autoRenew)} />
+                  <MembershipCancel session={session} autoRenewActive={Boolean(member?.autoRenew)} />
                 </>
               ) : (
                 <MembershipPurchase session={session} />
