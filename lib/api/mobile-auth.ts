@@ -105,10 +105,16 @@ export async function verifyMobileToken(token: string): Promise<MobileTokenPaylo
   }
 }
 
+export function isMobileClient(request: Request) {
+  return request.headers.get("x-smart-library-client")?.trim().toLowerCase() === "mobile";
+}
+
 export function extractBearerToken(request: Request) {
   const header = request.headers.get("authorization") ?? "";
   const match = /^Bearer\s+(.+)$/i.exec(header.trim());
   if (match?.[1]) return match[1].trim();
+  // Mobile clients must use Authorization Bearer only — never query tokens.
+  if (isMobileClient(request)) return null;
   const url = new URL(request.url);
   const queryToken = url.searchParams.get("access_token");
   return queryToken?.trim() || null;
@@ -128,6 +134,26 @@ export async function requireActiveMemberFromRequest(request: Request) {
   const member = await getMemberFromRequest(request);
   if (!member || !isActiveAccount(member)) return null;
   return member;
+}
+
+export type MobileMemberResult =
+  | { ok: true; member: MemberRecord }
+  | { ok: false; status: 401 | 403; error: string };
+
+/** Active account with paid membership (or admin). Used by mobile catalog/reading APIs. */
+export async function requireMobileMember(request: Request): Promise<MobileMemberResult> {
+  const member = await getMemberFromRequest(request);
+  if (!member || !isActiveAccount(member)) {
+    return { ok: false, status: 401, error: "Unauthorized." };
+  }
+  if (!member.isAdmin && !hasActiveMembership(member)) {
+    return { ok: false, status: 403, error: "Active membership required." };
+  }
+  return { ok: true, member };
+}
+
+export function canUseMobileApp(member: MemberRecord | Member) {
+  return isActiveAccount(member) && (Boolean(member.isAdmin) || hasActiveMembership(member));
 }
 
 export async function loginWithCredentials(emailRaw: string, password: string) {

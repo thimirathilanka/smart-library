@@ -1,6 +1,6 @@
-import { preflight } from "@/lib/api/cors";
+﻿import { preflight } from "@/lib/api/cors";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/api/http";
-import { requireActiveMemberFromRequest } from "@/lib/api/mobile-auth";
+import { requireMobileMember } from "@/lib/api/mobile-auth";
 import { removeReadingBookmark, saveReadingBookmark } from "@/lib/data/members";
 import type { ResourceKind } from "@/lib/types";
 
@@ -11,8 +11,9 @@ export function OPTIONS(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const member = await requireActiveMemberFromRequest(request);
-  if (!member) return jsonError(request, "Unauthorized.", 401);
+  const access = await requireMobileMember(request);
+  if (!access.ok) return jsonError(request, access.error, access.status);
+  const member = access.member;
 
   const body = await readJsonBody<{
     resourceId?: string;
@@ -39,8 +40,9 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const member = await requireActiveMemberFromRequest(request);
-  if (!member) return jsonError(request, "Unauthorized.", 401);
+  const access = await requireMobileMember(request);
+  if (!access.ok) return jsonError(request, access.error, access.status);
+  const member = access.member;
 
   const body = await readJsonBody<{ resourceId?: string; kind?: string }>(request);
   if (!body) return jsonError(request, "Invalid JSON body.");
