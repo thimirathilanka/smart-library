@@ -39,6 +39,9 @@ export function publicMember(member: MemberRecord): Member {
     joinedAt: member.joinedAt,
     reads: member.reads,
     status: member.status,
+    stripeCustomerId: member.stripeCustomerId,
+    stripeSubscriptionId: member.stripeSubscriptionId,
+    autoRenew: member.autoRenew,
   };
 }
 
@@ -58,15 +61,48 @@ export async function getMemberById(id: string) {
   return members.findOne({ _id: id });
 }
 
-export async function grantMembership(memberId: string) {
+export async function getMemberByStripeSubscriptionId(subscriptionId: string) {
   const { members } = await collections();
-  const expiresAt = new Date();
-  expiresAt.setUTCDate(expiresAt.getUTCDate() + 30);
-  const membershipExpiresAt = expiresAt.toISOString().slice(0, 10);
-  const result = await members.updateOne(
-    { _id: memberId },
-    { $set: { isMember: true, membershipExpiresAt } },
-  );
+  return members.findOne({ stripeSubscriptionId: subscriptionId });
+}
+
+export async function getMemberByStripeCustomerId(customerId: string) {
+  const { members } = await collections();
+  return members.findOne({ stripeCustomerId: customerId });
+}
+
+export async function grantMembership(
+  memberId: string,
+  options?: {
+    days?: number;
+    stripeCustomerId?: string;
+    stripeSubscriptionId?: string;
+    autoRenew?: boolean;
+  },
+) {
+  const { members } = await collections();
+  const current = await members.findOne({ _id: memberId });
+  if (!current) return null;
+
+  const today = new Date().toISOString().slice(0, 10);
+  let baseDate = new Date();
+  if (current.membershipExpiresAt && current.membershipExpiresAt > today) {
+    baseDate = new Date(current.membershipExpiresAt);
+  }
+
+  const days = options?.days ?? 30;
+  baseDate.setUTCDate(baseDate.getUTCDate() + days);
+  const membershipExpiresAt = baseDate.toISOString().slice(0, 10);
+
+  const updateSet: Record<string, unknown> = {
+    isMember: true,
+    membershipExpiresAt,
+  };
+  if (options?.stripeCustomerId) updateSet.stripeCustomerId = options.stripeCustomerId;
+  if (options?.stripeSubscriptionId) updateSet.stripeSubscriptionId = options.stripeSubscriptionId;
+  if (typeof options?.autoRenew === "boolean") updateSet.autoRenew = options.autoRenew;
+
+  const result = await members.updateOne({ _id: memberId }, { $set: updateSet });
   return result.matchedCount > 0 ? membershipExpiresAt : null;
 }
 
@@ -74,7 +110,10 @@ export async function cancelMembership(memberId: string) {
   const { members } = await collections();
   const result = await members.updateOne(
     { _id: memberId },
-    { $set: { isMember: false }, $unset: { membershipExpiresAt: "" } },
+    {
+      $set: { isMember: false, autoRenew: false },
+      $unset: { membershipExpiresAt: "", stripeSubscriptionId: "" },
+    },
   );
   return result.matchedCount > 0;
 }
