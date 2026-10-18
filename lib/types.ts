@@ -74,6 +74,7 @@ export type Book = {
   fileId?: string;
   coverId?: string;
   aiSummary?: string;
+  embedding?: number[];
   revision?: BookRevision;
 };
 
@@ -102,6 +103,7 @@ export type ResearchPaper = {
   fileId?: string;
   coverId?: string;
   aiSummary?: string;
+  embedding?: number[];
   revision?: PaperRevision;
 };
 
