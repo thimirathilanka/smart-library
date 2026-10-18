@@ -2,14 +2,35 @@ import "server-only";
 
 import { Readable } from "node:stream";
 import { auth } from "@/auth";
+import { getMemberFromRequest } from "@/lib/api/mobile-auth";
 import { openGridFsFile } from "@/lib/db";
 import { getMemberById } from "@/lib/data/members";
+import type { MemberRecord } from "@/lib/types";
 
-export async function previewSession() {
+type PreviewSession = {
+  session: { user?: { id?: string | null } | null } | null;
+  member: MemberRecord | null;
+  activeAdmin: boolean;
+  activeAuthor: boolean;
+};
+
+export async function previewSession(request?: Request): Promise<PreviewSession> {
+  if (request) {
+    const bearerMember = await getMemberFromRequest(request);
+    if (bearerMember) {
+      return {
+        session: { user: { id: bearerMember._id } },
+        member: bearerMember,
+        activeAdmin: Boolean(bearerMember.status === "Active" && bearerMember.isAdmin),
+        activeAuthor: Boolean(bearerMember.status === "Active" && bearerMember.isAuthor),
+      };
+    }
+  }
+
   const session = await auth();
   const member = session?.user?.id ? await getMemberById(session.user.id) : null;
   return {
-    session,
+    session: session ? { user: { id: session.user?.id } } : null,
     member,
     activeAdmin: Boolean(member?.status === "Active" && member.isAdmin),
     activeAuthor: Boolean(member?.status === "Active" && member.isAuthor),
