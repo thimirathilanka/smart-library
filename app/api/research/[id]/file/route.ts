@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
+import { canUseMobileApp, isMobileClient } from "@/lib/api/mobile-auth";
 import { hasActiveMembership } from "@/lib/data/members";
 import { isResourceOwner, previewSession, storedFileResponse, wantsRevision } from "@/lib/data/media";
 import { getPaperForStaff } from "@/lib/data/papers";
@@ -13,6 +14,17 @@ export async function GET(
   const { id } = await params;
   const paper = await getPaperForStaff(id);
   if (!paper) return new NextResponse("Not found", { status: 404 });
+
+  if (isMobileClient(request)) {
+    const { member } = await previewSession(request);
+    if (!member) return new NextResponse("Unauthorized", { status: 401 });
+    if (!canUseMobileApp(member)) return new NextResponse("Active membership required", { status: 403 });
+    if (!paper.fileId) return new NextResponse("Not found", { status: 404 });
+    const published = !paper.publicationStatus || paper.publicationStatus === "published";
+    if (!published && !member.isAdmin) return new NextResponse("Not found", { status: 404 });
+    await recordFileOpen("paper", id, member._id, request);
+    return storedFileResponse(paper.fileId, `${paper.title}.pdf`, "application/pdf");
+  }
 
   const { session, member, activeAdmin, activeAuthor } = await previewSession(request);
   const owner = isResourceOwner(activeAuthor, member?._id, paper.submittedBy);

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { canUseMobileApp, isMobileClient } from "@/lib/api/mobile-auth";
 import { getBookForStaff } from "@/lib/data/books";
 import { hasActiveMembership } from "@/lib/data/members";
 import { isResourceOwner, previewSession, storedFileResponse, wantsRevision } from "@/lib/data/media";
@@ -13,6 +14,17 @@ export async function GET(
   const { id } = await params;
   const book = await getBookForStaff(id);
   if (!book) return new NextResponse("Not found", { status: 404 });
+
+  if (isMobileClient(request)) {
+    const { member } = await previewSession(request);
+    if (!member) return new NextResponse("Unauthorized", { status: 401 });
+    if (!canUseMobileApp(member)) return new NextResponse("Active membership required", { status: 403 });
+    if (!book.fileId) return new NextResponse("Not found", { status: 404 });
+    const published = !book.publicationStatus || book.publicationStatus === "published";
+    if (!published && !member.isAdmin) return new NextResponse("Not found", { status: 404 });
+    await recordFileOpen("book", id, member._id, request);
+    return storedFileResponse(book.fileId, `${book.title}.pdf`, "application/pdf");
+  }
 
   const { session, member, activeAdmin, activeAuthor } = await previewSession(request);
   const owner = isResourceOwner(activeAuthor, member?._id, book.submittedBy);

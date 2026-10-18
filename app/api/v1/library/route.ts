@@ -1,6 +1,6 @@
-import { preflight } from "@/lib/api/cors";
+﻿import { preflight } from "@/lib/api/cors";
 import { jsonError, jsonOk } from "@/lib/api/http";
-import { requireActiveMemberFromRequest } from "@/lib/api/mobile-auth";
+import { requireMobileMember } from "@/lib/api/mobile-auth";
 import { listBooks } from "@/lib/data/books";
 import { getMemberLibrary } from "@/lib/data/members";
 import { listPapers } from "@/lib/data/papers";
@@ -30,8 +30,9 @@ function enrich(
 }
 
 export async function GET(request: Request) {
-  const member = await requireActiveMemberFromRequest(request);
-  if (!member) return jsonError(request, "Unauthorized.", 401);
+  const access = await requireMobileMember(request);
+  if (!access.ok) return jsonError(request, access.error, access.status);
+  const member = access.member;
 
   const [library, books, papers] = await Promise.all([
     getMemberLibrary(member._id),
