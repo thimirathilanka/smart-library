@@ -87,6 +87,7 @@ export default async function MembershipPage() {
               <PlanFeature>Full in-browser reading access</PlanFeature>
               <PlanFeature>Keep saved titles and reading history</PlanFeature>
               <PlanFeature>30 days of access from renewal</PlanFeature>
+              <PlanFeature>Access the AI‑powered Comparison Lab</PlanFeature>
             </ul>
             <div className="mt-auto pt-7">
               {active ? (
@@ -98,10 +99,15 @@ export default async function MembershipPage() {
                   {expiresAt ? (
                     <p className="mb-3 text-center text-xs text-muted">
                       Access through {formatLongDate(expiresAt)}
+                      {member?.autoRenew ? " • Auto-renews monthly" : " • One-time pass"}
                     </p>
                   ) : null}
-                  <MembershipPurchase session={session} renewal />
-                  <MembershipCancel session={session} />
+                  <MembershipPurchase session={session} renewal autoRenewActive={Boolean(member?.autoRenew)} />
+                  <MembershipCancel session={session} autoRenewActive={Boolean(member?.autoRenew)} />
+                  {/* New link to the Comparison Lab */}
+                  <a href="/compare" className="mt-3 block text-center text-sm font-medium text-navy hover:underline">
+                    Try Comparison Lab →
+                  </a>
                 </>
               ) : (
                 <MembershipPurchase session={session} />

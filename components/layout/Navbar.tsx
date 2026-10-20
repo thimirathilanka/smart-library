@@ -22,6 +22,8 @@ export function Navbar({ user, unreadNotifications = 0, notifications = [] }: { 
     { href: "/", label: "Home" },
     { href: "/books", label: "Books" },
     { href: "/research", label: "Research Papers" },
+    { href: "/finder", label: "Discover" },
+    ...(user?.isMember ? [{ href: "/compare", label: "Comparison Lab" }] : []),
     ...(isAuthor ? [{ href: "/author", label: "Author" }] : []),
     ...(isStaff ? [{ href: "/admin", label: "Admin" }] : []),
   ];

@@ -74,6 +74,7 @@ export type Book = {
   fileId?: string;
   coverId?: string;
   aiSummary?: string;
+  embedding?: number[];
   revision?: BookRevision;
 };
 
@@ -102,6 +103,7 @@ export type ResearchPaper = {
   fileId?: string;
   coverId?: string;
   aiSummary?: string;
+  embedding?: number[];
   revision?: PaperRevision;
 };
 
@@ -124,6 +126,9 @@ export type Member = {
   joinedAt: string;
   reads: number;
   status: "Active" | "Invited" | "Suspended";
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  autoRenew?: boolean;
 };
 
 export type LibraryItem = {
