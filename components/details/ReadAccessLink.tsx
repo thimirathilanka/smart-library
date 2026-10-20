@@ -60,7 +60,7 @@ export function ReadAccessLink({
         onClick={(event) => {
           if (event.target === dialogRef.current) dialogRef.current?.close();
         }}
-        className="m-auto h-[min(86dvh,44rem)] max-h-[calc(100dvh-1rem)] w-[calc(100%-2rem)] max-w-3xl overflow-hidden rounded-xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:bg-navy/45 backdrop:backdrop-blur-sm"
+        className="m-auto h-[min(86dvh,44rem)] max-h-[calc(100dvh-1rem)] w-[calc(100%-2rem)] max-w-3xl overflow-hidden rounded-xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:bg-transparent backdrop:backdrop-blur-md"
         aria-labelledby="members-only-title"
         aria-describedby="members-only-description"
       >
