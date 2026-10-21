@@ -1,7 +1,10 @@
 import { listBooks } from "@/lib/data/books";
 import { listPapers } from "@/lib/data/papers";
 import { SemanticFinder } from "@/components/finder/SemanticFinder";
+import { STANDARD_TOPICS } from "@/lib/categories";
 import type { SemanticSearchResult } from "@/lib/ai/semantic-search";
+
+export const maxDuration = 60;
 
 export const metadata = {
   title: "Semantic Research Finder · Nextgen Digital Library",
@@ -12,8 +15,8 @@ export const metadata = {
 export default async function FinderPage() {
   const [books, papers] = await Promise.all([listBooks(), listPapers()]);
 
-  const categories = Array.from(new Set(books.map((b) => b.category))).sort();
-  const fields = Array.from(new Set(papers.map((p) => p.field))).sort();
+  const categories = Array.from(new Set([...STANDARD_TOPICS, ...books.map((b) => b.category)])).sort();
+  const fields = Array.from(new Set([...STANDARD_TOPICS, ...papers.map((p) => p.field)])).sort();
   const years = Array.from(
     new Set([...books.map((b) => b.year), ...papers.map((p) => p.year)]),
   ).sort((a, b) => b - a);

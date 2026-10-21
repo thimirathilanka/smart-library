@@ -6,7 +6,7 @@ import { collections } from "@/lib/db";
 import type { AccessType, Book, ResearchPaper, ResourceKind } from "@/lib/types";
 
 const EMBEDDING_MODEL = "gemini-embedding-001";
-const REASONING_MODEL = "gemini-2.5-flash";
+const REASONING_MODEL = "gemini-3.5-flash-lite";
 const API_URL = "https://generativelanguage.googleapis.com/v1beta";
 
 export type SemanticSearchResult = {
@@ -57,6 +57,33 @@ export async function getEmbedding(text: string): Promise<number[] | null> {
     console.error("[semantic-search] Failed to fetch embedding:", error);
     return null;
   }
+}
+
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function checkLexicalMatch(
+  query: string,
+  text: string,
+): { hasMatch: boolean; count: number; total: number } {
+  const tokens = query
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 2);
+
+  if (tokens.length === 0) return { hasMatch: false, count: 0, total: 0 };
+
+  let count = 0;
+  for (const token of tokens) {
+    const reg = new RegExp(`(?:\\b|^)${escapeRegExp(token)}(?:\\b|$)`, "i");
+    if (reg.test(text)) {
+      count++;
+    }
+  }
+
+  return { hasMatch: count > 0, count, total: tokens.length };
 }
 
 export function cosineSimilarity(vecA: number[], vecB: number[]): number {
@@ -113,44 +140,61 @@ export async function explainMatchWithGemini(
   resource: { title: string; kind: string; summary: string },
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
-  if (!apiKey) return `Relates to your search on "${query}".`;
+  if (!apiKey) return `Examines topics directly connected to ${query} within ${resource.title}.`;
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
     const response = await fetch(`${API_URL}/models/${REASONING_MODEL}:generateContent`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-goog-api-key": apiKey,
       },
+      signal: controller.signal,
       body: JSON.stringify({
         contents: [
           {
             parts: [
               {
-                text: `You are an academic librarian. In exactly ONE concise sentence (max 20 words), explain specifically why this ${resource.kind} is relevant to the user's research query. Do not use buzzwords, quotes, or markdown.
+                text: `You are an academic librarian. In exactly ONE concise, specific sentence (under 25 words), explain specifically what concepts or findings in this ${resource.kind} address the user's research query. Be concrete, realistic, and name the specific subject matter. Do not use quotes, buzzwords, or markdown.
 
 User query: "${query}"
 Title: "${resource.title}"
-Content overview: "${resource.summary.slice(0, 600)}"`,
+Content overview: "${resource.summary.slice(0, 1000)}"`,
               },
             ],
           },
         ],
         generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 80,
+          temperature: 0.3,
+          maxOutputTokens: 500,
+          thinkingConfig: { thinkingBudget: 0 },
         },
       }),
     });
 
-    if (!response.ok) throw new Error("Explanation API failed");
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      console.warn(`[semantic-search] Explanation API returned status ${response.status}`);
+      throw new Error("Explanation API failed");
+    }
+
     const data = (await response.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> } }>;
     };
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-    return text || `Discusses topics directly related to "${query}".`;
-  } catch {
-    return `Discusses key concepts relevant to your inquiry regarding ${query}.`;
+    const parts = data.candidates?.[0]?.content?.parts ?? [];
+    let text = "";
+    for (const p of parts) {
+      if (p.text && !p.thought) text = p.text.trim();
+    }
+    const clean = text.replace(/^["'*]+|["'*]+$/g, "").trim();
+    return clean || `Examines topics directly connected to ${query} within ${resource.title}.`;
+  } catch (error) {
+    console.warn("[semantic-search] explainMatch error:", error);
+    return `Examines topics directly connected to ${query} within ${resource.title}.`;
   }
 }
 
@@ -268,15 +312,13 @@ export async function searchCatalogSemantically({
 
   // Fallback if embedding is unavailable (e.g. offline/no key)
   if (!queryEmbedding) {
-    const queryTokens = cleanQuery.toLowerCase().split(/\s+/).filter((t) => t.length > 2);
     return candidates
       .map((c) => {
-        const text = `${c.title} ${c.authors.join(" ")} ${c.categoryOrField} ${c.summary}`.toLowerCase();
-        let matches = 0;
-        for (const token of queryTokens) {
-          if (text.includes(token)) matches++;
-        }
-        const score = queryTokens.length > 0 ? Math.round((matches / queryTokens.length) * 100) : 50;
+        const text = `${c.title} ${c.authors.join(" ")} ${c.categoryOrField} ${c.descriptionOrAbstract} ${c.summary}`;
+        const lex = checkLexicalMatch(cleanQuery, text);
+        const score = lex.hasMatch
+          ? Math.round(60 + (lex.count / Math.max(1, lex.total)) * 30)
+          : 0;
         return {
           _id: c.item._id,
           kind: c.kind,
@@ -295,24 +337,49 @@ export async function searchCatalogSemantically({
           cover: c.cover,
         };
       })
-      .filter((c) => c.similarityScore > 0)
+      .filter((c) => c.similarityScore >= 50)
       .sort((a, b) => b.similarityScore - a.similarityScore)
       .slice(0, limit);
   }
 
   // 2. Compute similarity for each candidate
+  // Baseline noise floor in dense embedding space for unrelated texts is ~0.44 - 0.51.
+  // Genuine semantic relevance requires raw cosine similarity >= 0.535 (or >= 0.51 if direct keywords match).
+  const MIN_SEMANTIC_THRESHOLD = 0.535;
+
   const scoredCandidates = await Promise.all(
     candidates.map(async (c) => {
       const itemEmbedding = await ensureEmbedding(c.item, c.kind);
+      const fullText = `${c.title} ${c.authors.join(" ")} ${c.categoryOrField} ${c.descriptionOrAbstract} ${c.summary}`;
+      const lex = checkLexicalMatch(cleanQuery, fullText);
+
       let similarity = 0;
       if (itemEmbedding) {
         const rawSim = cosineSimilarity(queryEmbedding, itemEmbedding);
-        // Normalize cosine score (typically 0.35-0.90) to intuitive 50-99% score
-        similarity = Math.max(0, Math.min(99, Math.round(((rawSim - 0.3) / 0.55) * 50 + 50)));
+
+        // If neither semantic threshold is met nor keyword match exists, it is unrelated:
+        if (!lex.hasMatch && rawSim < MIN_SEMANTIC_THRESHOLD) {
+          similarity = 0;
+        } else {
+          let effectiveSim = rawSim;
+          if (lex.hasMatch) {
+            const ratio = lex.count / Math.max(1, lex.total);
+            effectiveSim += ratio * 0.05;
+          }
+
+          if (effectiveSim < 0.52) {
+            similarity = 0;
+          } else {
+            // Normalize effective similarity (0.52 to 0.82+) to intuitive 55% - 99%
+            const normalized = Math.round(55 + ((effectiveSim - 0.52) / 0.30) * 44);
+            similarity = Math.max(50, Math.min(99, normalized));
+          }
+        }
       } else {
-        // Fallback text check
-        const text = `${c.title} ${c.summary}`.toLowerCase();
-        similarity = text.includes(cleanQuery.toLowerCase()) ? 75 : 40;
+        // Fallback text check if item has no embedding
+        similarity = lex.hasMatch
+          ? Math.round(60 + (lex.count / Math.max(1, lex.total)) * 30)
+          : 0;
       }
 
       return {
@@ -322,7 +389,7 @@ export async function searchCatalogSemantically({
     }),
   );
 
-  // 3. Sort by similarity score descending
+  // 3. Sort by similarity score descending (only include items meeting minimum relevance)
   const topMatches = scoredCandidates
     .filter((entry) => entry.score >= 50)
     .sort((a, b) => b.score - a.score || b.candidate.reads - a.candidate.reads)

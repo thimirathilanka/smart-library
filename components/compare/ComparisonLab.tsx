@@ -5,54 +5,127 @@ import Link from "next/link";
 import {
   ArrowLeftRight,
   BookOpen,
+  Check,
   CheckCircle2,
   ChevronRight,
+  Clock,
+  ExternalLink,
   FileText,
+  Filter,
+  GraduationCap,
+  Layers,
   Lightbulb,
   Loader2,
   MinusCircle,
   Plus,
+  RefreshCw,
+  RotateCcw,
+  Scale,
   Search,
   Sparkles,
+  Trash2,
+  Wrench,
   X,
   XCircle,
-  Telescope,
 } from "lucide-react";
-import { compareResourcesAction } from "@/app/actions/compare";
-import type { ComparisonResult, CompareResource, ComparisonPair } from "@/lib/ai/compare";
-import type { ResourceKind } from "@/lib/types";
+import {
+  generateComparisonReportAction,
+  getSavedComparisonAction,
+  deleteSavedComparisonAction,
+  renameSavedComparisonAction,
+} from "@/app/actions/compare";
+import { ComparisonReportView } from "@/components/compare/ComparisonReportView";
+import type {
+  ComparisonPurpose,
+  ComparisonReport,
+  ResourceKind,
+  SavedComparisonSummary,
+} from "@/lib/types";
 import { cn } from "@/lib/format";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type SearchHit = {
+export type SearchHit = {
   _id: string;
   kind: ResourceKind;
   title: string;
   authors: string[];
   year: number;
   categoryOrField: string;
+  coverId?: string;
+  cover?: {
+    from: string;
+    to: string;
+    accent: string;
+  };
+  fileId?: string;
 };
 
-type SelectedItem = {
-  id: string;
-  kind: ResourceKind;
+const PURPOSES: Array<{
+  id: ComparisonPurpose;
   title: string;
-};
+  description: string;
+  icon: typeof Scale;
+}> = [
+  {
+    id: "general",
+    title: "General Comparison",
+    description: "Broad thematic synthesis and core arguments",
+    icon: ArrowLeftRight,
+  },
+  {
+    id: "academic",
+    title: "Academic Research",
+    description: "Methodologies, empirical evidence, and scholarly rigor",
+    icon: GraduationCap,
+  },
+  {
+    id: "learning",
+    title: "Learning & Exam Prep",
+    description: "Conceptual clarity, fundamentals, and explanations",
+    icon: BookOpen,
+  },
+  {
+    id: "technical",
+    title: "Technical Comparison",
+    description: "Algorithms, architecture, trade-offs, and implementation",
+    icon: Wrench,
+  },
+  {
+    id: "literature",
+    title: "Literature Review",
+    description: "Mapping lineages, consensus, and research gaps",
+    icon: Layers,
+  },
+];
 
-// ─── Component ────────────────────────────────────────────────────────────────
+const QUESTION_SUGGESTIONS = [
+  "Which approach is most robust to noisy real-world data?",
+  "How do their foundational theoretical proofs compare?",
+  "Which document explains the concepts with more clarity for beginners?",
+  "What are the contrasting trade-offs in their proposed architectures?",
+];
 
 export function ComparisonLab({
   initialBooks = [],
   initialPapers = [],
+  initialSavedReports = [],
 }: {
   initialBooks?: SearchHit[];
   initialPapers?: SearchHit[];
+  initialSavedReports?: SavedComparisonSummary[];
 }) {
-  const [selected, setSelected] = useState<SelectedItem[]>([]);
+  const [selected, setSelected] = useState<SearchHit[]>([]);
+  const [purpose, setPurpose] = useState<ComparisonPurpose>("general");
+  const [customQuestion, setCustomQuestion] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [kindFilter, setKindFilter] = useState<"all" | "book" | "paper">("all");
-  const [result, setResult] = useState<ComparisonResult | null>(null);
+  const [topicFilter, setTopicFilter] = useState("all");
+
+  const [report, setReport] = useState<ComparisonReport | null>(null);
+  const [activeSavedId, setActiveSavedId] = useState<string | undefined>();
+  const [savedReports, setSavedReports] = useState<SavedComparisonSummary[]>(initialSavedReports);
+  const [isSavedModalOpen, setIsSavedModalOpen] = useState(false);
+  const [loadingSavedId, setLoadingSavedId] = useState<string | null>(null);
+
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
 
@@ -61,8 +134,11 @@ export function ComparisonLab({
     ...initialPapers.map((p) => ({ ...p, kind: "paper" as ResourceKind })),
   ];
 
-  const filtered = allItems.filter((item) => {
+  const allTopics = Array.from(new Set(allItems.map((i) => i.categoryOrField))).sort();
+
+  const filteredItems = allItems.filter((item) => {
     if (kindFilter !== "all" && item.kind !== kindFilter) return false;
+    if (topicFilter !== "all" && item.categoryOrField !== topicFilter) return false;
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -72,453 +148,521 @@ export function ComparisonLab({
     );
   });
 
-  function toggleItem(hit: SearchHit) {
-    const already = selected.find((s) => s.id === hit._id);
-    if (already) {
-      setSelected(selected.filter((s) => s.id !== hit._id));
+  function toggleSelect(item: SearchHit) {
+    const isAlready = selected.some((s) => s._id === item._id);
+    if (isAlready) {
+      setSelected(selected.filter((s) => s._id !== item._id));
     } else {
       if (selected.length >= 4) return;
-      setSelected([...selected, { id: hit._id, kind: hit.kind, title: hit.title }]);
+      setSelected([...selected, item]);
     }
   }
 
   function removeSelected(id: string) {
-    setSelected(selected.filter((s) => s.id !== id));
+    setSelected(selected.filter((s) => s._id !== id));
   }
 
-  function runComparison() {
+  function handleStartComparison() {
     if (selected.length < 2) return;
     setError("");
-    setResult(null);
+
     startTransition(async () => {
-      const res = await compareResourcesAction({
-        items: selected.map(({ id, kind }) => ({ id, kind })),
+      const res = await generateComparisonReportAction({
+        items: selected.map((s) => ({ id: s._id, kind: s.kind })),
+        purpose,
+        customQuestion: customQuestion.trim() || undefined,
       });
+
       if (res.ok) {
-        setResult(res.data);
+        setReport(res.data);
+        setActiveSavedId(undefined);
       } else {
         setError(res.error);
       }
     });
   }
 
-  const isSelected = (id: string) => selected.some((s) => s.id === id);
+  async function handleLoadSaved(id: string) {
+    setLoadingSavedId(id);
+    const res = await getSavedComparisonAction(id);
+    setLoadingSavedId(null);
+    if (res.ok) {
+      setReport(res.data.report);
+      setActiveSavedId(res.data._id);
+      setIsSavedModalOpen(false);
+    } else {
+      setError(res.error);
+    }
+  }
+
+  async function handleDeleteSaved(id: string) {
+    const res = await deleteSavedComparisonAction(id);
+    if (res.ok) {
+      setSavedReports(savedReports.filter((r) => r._id !== id));
+    }
+  }
+
+  // If a report is active, render the full Results Dashboard
+  if (report) {
+    return (
+      <ComparisonReportView
+        report={report}
+        savedId={activeSavedId}
+        onReset={() => setReport(null)}
+      />
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-paper">
-      {/* ── Header ── */}
-      <div className="border-b border-line bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-xl bg-navy text-white">
-              <ArrowLeftRight className="size-5" />
-            </span>
-            <div>
-              <h1 className="font-serif text-2xl text-navy">Comparison Lab</h1>
-              <p className="mt-0.5 text-sm text-muted">
-                Select 2&ndash;4 books or research papers. AI reads their content and compares
-                core ideas, arguments, and what to explore next.
-              </p>
-            </div>
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      {/* Header Banner */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-white/10 pb-6">
+        <div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
+            <Sparkles className="size-3.5 text-emerald-400" />
+            <span>AI Multi-Document Intelligence</span>
           </div>
+          <h1 className="mt-3 font-serif text-3xl font-normal tracking-tight text-white sm:text-4xl">
+            AI Comparison Lab
+          </h1>
+          <p className="mt-2 text-sm text-white/60 max-w-2xl">
+            Select 2 to 4 books or research papers. The AI deeply analyzes their actual contents,
+            methodologies, and findings to generate an evidence-backed comparative report.
+          </p>
+        </div>
+
+        {/* Saved Reports Trigger */}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setIsSavedModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-medium text-white hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-300 transition-colors"
+          >
+            <Clock className="size-4 text-emerald-400" />
+            <span>Saved Reports</span>
+            {savedReports.length > 0 ? (
+              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+                {savedReports.length}
+              </span>
+            ) : null}
+          </button>
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
-          {/* ── Left: catalog picker ── */}
-          <section>
-            <div className="mb-4 flex flex-wrap gap-3">
-              <label className="relative flex-1 min-w-[200px]">
-                <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" />
-                <input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by title, author, or topic…"
-                  className="w-full rounded-full border border-line bg-white py-2 pr-4 pl-10 text-sm outline-none transition focus:border-navy-soft focus:ring-2 focus:ring-navy/10"
-                />
-              </label>
-              <div className="flex gap-2">
-                {(["all", "book", "paper"] as const).map((k) => (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => setKindFilter(k)}
-                    className={cn(
-                      "rounded-full px-4 py-2 text-sm font-medium transition",
-                      kindFilter === k
-                        ? "bg-navy text-white"
-                        : "border border-line bg-white text-navy-mid hover:bg-paper",
-                    )}
-                  >
-                    {k === "all" ? "All" : k === "book" ? "Books" : "Papers"}
-                  </button>
-                ))}
-              </div>
-            </div>
+      {/* STEP 1: COMPARISON PURPOSE SELECTOR */}
+      <section className="mt-8 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-white/70">
+            1. Select Comparison Objective
+          </h2>
+          <span className="text-[11px] text-white/40">Customizes report emphasis & evaluations</span>
+        </div>
 
-            <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
-              {filtered.length === 0 && (
-                <p className="py-12 text-center text-sm text-muted">No results found.</p>
-              )}
-              {filtered.slice(0, 80).map((item) => {
-                const sel = isSelected(item._id);
-                const maxed = selected.length >= 4 && !sel;
-                return (
-                  <button
-                    key={item._id + item.kind}
-                    type="button"
-                    disabled={maxed}
-                    onClick={() => toggleItem(item)}
-                    className={cn(
-                      "w-full text-left rounded-2xl border p-4 transition",
-                      sel
-                        ? "border-navy bg-navy/5 ring-1 ring-navy/20"
-                        : maxed
-                          ? "border-line bg-white opacity-40 cursor-not-allowed"
-                          : "border-line bg-white hover:border-navy/30 hover:shadow-sm",
-                    )}
-                  >
-                    <div className="flex items-start gap-3">
-                      <span
-                        className={cn(
-                          "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition",
-                          sel ? "border-navy bg-navy text-white" : "border-line",
-                        )}
-                      >
-                        {sel && <CheckCircle2 className="size-3.5" />}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          {item.kind === "book" ? (
-                            <BookOpen className="size-3.5 shrink-0 text-navy-soft" />
-                          ) : (
-                            <FileText className="size-3.5 shrink-0 text-navy-soft" />
-                          )}
-                          <span className="text-[11px] font-semibold tracking-wide text-navy-soft uppercase">
-                            {item.kind === "book" ? "Book" : "Paper"} &middot; {item.categoryOrField}
-                          </span>
-                        </div>
-                        <p className="mt-1 font-serif text-base leading-snug text-navy line-clamp-2">
-                          {item.title}
-                        </p>
-                        <p className="mt-0.5 text-xs text-muted">
-                          {item.authors.slice(0, 3).join(" · ")} &middot; {item.year}
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* ── Right: selection tray ── */}
-          <aside className="space-y-5">
-            <div className="rounded-3xl border border-line bg-white p-5 shadow-sm">
-              <h2 className="flex items-center gap-2 font-semibold text-navy">
-                <Plus className="size-4 text-muted" />
-                Selected ({selected.length}/4)
-              </h2>
-              <p className="mt-1 text-xs text-muted">
-                {selected.length < 2
-                  ? `Select ${2 - selected.length} more to compare`
-                  : "Ready! Hit Compare below."}
-              </p>
-
-              <div className="mt-4 space-y-2">
-                {selected.length === 0 && (
-                  <p className="py-6 text-center text-sm text-muted">Nothing selected yet.</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {PURPOSES.map((p) => {
+            const Icon = p.icon;
+            const isSelected = purpose === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setPurpose(p.id)}
+                className={cn(
+                  "flex flex-col text-left rounded-xl p-3.5 border transition-all",
+                  isSelected
+                    ? "border-emerald-500 bg-emerald-950/25 ring-1 ring-emerald-500/50 shadow-sm"
+                    : "border-white/10 bg-[#161a18] hover:border-white/20 hover:bg-[#1a201c]",
                 )}
-                {selected.map((s, idx) => (
-                  <div
-                    key={s.id}
-                    className="flex items-start gap-2 rounded-xl bg-paper px-3 py-2.5"
-                  >
-                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-navy text-[10px] font-bold text-white">
-                      {String.fromCharCode(65 + idx)}
+              >
+                <div className="flex items-center justify-between">
+                  <Icon
+                    className={cn(
+                      "size-4",
+                      isSelected ? "text-emerald-400" : "text-white/40",
+                    )}
+                  />
+                  {isSelected ? <Check className="size-3 text-emerald-400" /> : null}
+                </div>
+                <h3
+                  className={cn(
+                    "mt-2.5 text-xs font-semibold",
+                    isSelected ? "text-white" : "text-white/80",
+                  )}
+                >
+                  {p.title}
+                </h3>
+                <p className="mt-1 text-[11px] text-white/50 leading-relaxed">
+                  {p.description}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* STEP 2: OPTIONAL CUSTOM INQUIRY */}
+      <section className="mt-6 rounded-xl border border-white/10 bg-[#161a18] p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <label
+              htmlFor="custom-question-input"
+              className="text-xs font-semibold uppercase tracking-wider text-white/70"
+            >
+              2. Custom Focus Question (Optional)
+            </label>
+            <p className="text-[11px] text-white/50 mt-0.5">
+              Ask a specific question you want the comparison report to investigate across the documents.
+            </p>
+          </div>
+        </div>
+
+        <input
+          id="custom-question-input"
+          type="text"
+          value={customQuestion}
+          onChange={(e) => setCustomQuestion(e.target.value)}
+          placeholder="e.g. Which method handles edge cases and data drift better? How do their computational costs compare?"
+          className="mt-3 w-full rounded-lg border border-white/15 bg-black/40 px-3.5 py-2 text-xs text-white placeholder-white/40 outline-none focus:border-emerald-500 sm:text-sm"
+        />
+
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] text-white/40 flex items-center gap-1">
+            <Lightbulb className="size-3" />
+            Try:
+          </span>
+          {QUESTION_SUGGESTIONS.map((qs) => (
+            <button
+              key={qs}
+              type="button"
+              onClick={() => setCustomQuestion(qs)}
+              className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] text-white/60 hover:border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-300 transition-colors"
+            >
+              &ldquo;{qs}&rdquo;
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* STEP 3: DOCUMENT SELECTOR */}
+      <section className="mt-8 space-y-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-white/70">
+            3. Choose Documents to Compare (Select 2 to 4)
+          </h2>
+          <span className="text-xs font-medium text-emerald-400">
+            {selected.length} of 4 selected
+          </span>
+        </div>
+
+        {/* Filter & Search Bar */}
+        <div className="rounded-xl border border-white/10 bg-[#161a18] p-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          {/* Document Type Tabs */}
+          <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-black/30 p-1">
+            <button
+              type="button"
+              onClick={() => setKindFilter("all")}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                kindFilter === "all" ? "bg-emerald-600 text-white" : "text-white/60 hover:text-white",
+              )}
+            >
+              All ({allItems.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setKindFilter("book")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                kindFilter === "book" ? "bg-emerald-600 text-white" : "text-white/60 hover:text-white",
+              )}
+            >
+              <BookOpen className="size-3" />
+              Books ({initialBooks.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setKindFilter("paper")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                kindFilter === "paper" ? "bg-emerald-600 text-white" : "text-white/60 hover:text-white",
+              )}
+            >
+              <FileText className="size-3" />
+              Papers ({initialPapers.length})
+            </button>
+          </div>
+
+          {/* Search Input & Topic Filter */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex items-center rounded-lg border border-white/10 bg-black/40 px-3 py-1.5 focus-within:border-emerald-500">
+              <Search className="size-3.5 text-white/40 mr-2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search title, author..."
+                className="bg-transparent text-xs text-white placeholder-white/40 outline-none w-44"
+              />
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="text-white/40 hover:text-white"
+                >
+                  <X className="size-3" />
+                </button>
+              ) : null}
+            </div>
+
+            <select
+              value={topicFilter}
+              onChange={(e) => setTopicFilter(e.target.value)}
+              className="rounded-lg border border-white/10 bg-black/40 px-3 py-1.5 text-xs text-white outline-none focus:border-emerald-500"
+            >
+              <option value="all">All Topics</option>
+              {allTopics.map((topic) => (
+                <option key={topic} value={topic}>
+                  {topic}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Document Grid */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filteredItems.map((item) => {
+            const isSelected = selected.some((s) => s._id === item._id);
+            const canSelect = isSelected || selected.length < 4;
+
+            return (
+              <div
+                key={item._id}
+                onClick={() => canSelect && toggleSelect(item)}
+                className={cn(
+                  "group relative flex flex-col justify-between rounded-xl border p-4 transition-all cursor-pointer select-none",
+                  isSelected
+                    ? "border-emerald-500 bg-emerald-950/20 shadow-md ring-1 ring-emerald-500/50"
+                    : canSelect
+                    ? "border-white/10 bg-[#151917] hover:border-white/20 hover:bg-[#1a201c]"
+                    : "border-white/5 bg-white/[0.02] opacity-40 cursor-not-allowed",
+                )}
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={cn(
+                        "rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+                        item.kind === "book"
+                          ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                          : "bg-purple-500/10 text-purple-400 border border-purple-500/20",
+                      )}
+                    >
+                      {item.kind}
                     </span>
-                    <p className="flex-1 text-sm leading-snug text-navy line-clamp-2">{s.title}</p>
+
+                    <span
+                      className={cn(
+                        "flex size-5 items-center justify-center rounded-full text-xs transition-colors",
+                        isSelected
+                          ? "bg-emerald-500 text-black font-bold"
+                          : "border border-white/20 text-white/30 group-hover:border-white/50",
+                      )}
+                    >
+                      {isSelected ? <Check className="size-3 stroke-[3]" /> : <Plus className="size-3" />}
+                    </span>
+                  </div>
+
+                  <h3 className="mt-2.5 font-serif text-sm font-semibold text-white line-clamp-2 leading-snug">
+                    {item.title}
+                  </h3>
+                  <p className="mt-1 text-xs text-white/60 line-clamp-1">
+                    {item.authors.join(", ")}
+                  </p>
+                </div>
+
+                <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-2 text-[11px] text-white/50">
+                  <span className="truncate max-w-[140px]">{item.categoryOrField}</span>
+                  <span>{item.year}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ERROR MESSAGE */}
+      {error ? (
+        <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-center text-xs text-red-300">
+          {error}
+        </div>
+      ) : null}
+
+      {/* FLOATING COMPARISON TRAY (STICKY BOTTOM) */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0c0f0e]/95 p-4 shadow-2xl backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {/* Selected slots preview */}
+          <div className="flex items-center gap-3 overflow-x-auto">
+            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400 shrink-0">
+              Selected ({selected.length}/4):
+            </span>
+
+            {selected.length === 0 ? (
+              <span className="text-xs text-white/40 italic">
+                Click any document cards above to add to comparison (min 2, max 4).
+              </span>
+            ) : (
+              <div className="flex items-center gap-2">
+                {selected.map((item, i) => (
+                  <div
+                    key={item._id}
+                    className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-950/40 px-2.5 py-1 text-xs text-white"
+                  >
+                    <span className="size-4 flex items-center justify-center rounded-full bg-emerald-500/20 text-[10px] font-bold text-emerald-400">
+                      {i + 1}
+                    </span>
+                    <span className="max-w-[120px] truncate sm:max-w-[180px] font-medium">
+                      {item.title}
+                    </span>
                     <button
                       type="button"
-                      onClick={() => removeSelected(s.id)}
-                      className="text-muted hover:text-navy transition"
-                      aria-label="Remove"
+                      onClick={() => removeSelected(item._id)}
+                      className="ml-1 text-white/40 hover:text-white"
+                      title="Remove from comparison"
                     >
-                      <X className="size-4" />
+                      <X className="size-3" />
                     </button>
                   </div>
                 ))}
               </div>
+            )}
+          </div>
 
+          {/* Action button */}
+          <div className="flex items-center gap-2 shrink-0">
+            {selected.length > 0 ? (
               <button
                 type="button"
-                disabled={selected.length < 2 || pending}
-                onClick={runComparison}
-                className={cn(
-                  "mt-5 flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-semibold transition",
-                  selected.length >= 2 && !pending
-                    ? "bg-navy text-white hover:bg-navy-mid"
-                    : "bg-navy/20 text-navy/40 cursor-not-allowed",
-                )}
+                onClick={() => setSelected([])}
+                className="rounded-lg px-3 py-2 text-xs text-white/50 hover:text-white transition-colors"
               >
-                {pending ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    Analysing content&hellip;
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="size-4" />
-                    Compare with AI
-                  </>
-                )}
+                Clear All
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              disabled={selected.length < 2 || pending}
+              onClick={handleStartComparison}
+              className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-semibold text-white shadow hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {pending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  <span>Synthesizing Deep Report…</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="size-4" />
+                  <span>
+                    {selected.length < 2
+                      ? "Select at least 2 to compare"
+                      : `Compare ${selected.length} Documents`}
+                  </span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* SAVED REPORTS MODAL */}
+      {isSavedModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-2xl border border-white/15 bg-[#161a18] p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2">
+                <Clock className="size-4 text-emerald-400" />
+                <h3 className="font-serif text-lg text-white">Saved Comparison Reports</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSavedModalOpen(false)}
+                className="text-white/40 hover:text-white"
+              >
+                <X className="size-4" />
               </button>
             </div>
 
-            {!result && !pending && (
-              <div className="rounded-3xl border border-line bg-white p-5">
-                <h3 className="text-sm font-semibold text-navy">What AI compares</h3>
-                <ul className="mt-3 space-y-2 text-xs text-muted">
-                  <li className="flex gap-2"><Lightbulb className="size-3.5 shrink-0 mt-0.5 text-amber-500" /> Core idea of each resource</li>
-                  <li className="flex gap-2"><CheckCircle2 className="size-3.5 shrink-0 mt-0.5 text-emerald-500" /> Shared themes and methods</li>
-                  <li className="flex gap-2"><MinusCircle className="size-3.5 shrink-0 mt-0.5 text-red-400" /> Key intellectual differences</li>
-                  <li className="flex gap-2"><Telescope className="size-3.5 shrink-0 mt-0.5 text-violet-500" /> Topics to explore further</li>
-                </ul>
-              </div>
-            )}
-          </aside>
-        </div>
+            <div className="max-h-96 overflow-y-auto space-y-2.5 pr-1">
+              {savedReports.length === 0 ? (
+                <div className="py-8 text-center text-xs text-white/40">
+                  No saved comparison reports yet. Generate a comparison report and click &ldquo;Save Report&rdquo; to store it here.
+                </div>
+              ) : (
+                savedReports.map((saved) => (
+                  <div
+                    key={saved._id}
+                    className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-white/10 bg-white/5 p-3.5 hover:border-emerald-500/30 transition-colors"
+                  >
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 uppercase">
+                          {saved.purpose}
+                        </span>
+                        <span className="text-[11px] text-white/40">
+                          {new Date(saved.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <h4 className="font-medium text-xs text-white truncate">{saved.title}</h4>
+                      <p className="text-[11px] text-white/50 truncate">
+                        {saved.resourceTitles.join(", ")}
+                      </p>
+                    </div>
 
-        {/* ── Error ── */}
-        {error && (
-          <div className="mt-8 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
-            <XCircle className="size-5 shrink-0" />
-            {error}
-          </div>
-        )}
-
-        {/* ── Loading skeleton ── */}
-        {pending && (
-          <div className="mt-8 space-y-4">
-            <p className="text-sm text-muted text-center animate-pulse">
-              AI is reading the content and building your comparison&hellip;
-            </p>
-            {[...Array(2)].map((_, i) => (
-              <div key={i} className="h-64 rounded-3xl bg-white/70 border border-line animate-pulse" />
-            ))}
-          </div>
-        )}
-
-        {/* ── Results ── */}
-        {result && !pending && (
-          <div className="mt-10 space-y-10">
-            {/* Resource overview row */}
-            <div>
-              <h2 className="font-serif text-xl text-navy mb-4">Resources Compared</h2>
-              <div
-                className={cn(
-                  "grid gap-4",
-                  result.resources.length === 2
-                    ? "sm:grid-cols-2"
-                    : result.resources.length === 3
-                      ? "sm:grid-cols-3"
-                      : "sm:grid-cols-2 lg:grid-cols-4",
-                )}
-              >
-                {result.resources.map((r, idx) => (
-                  <ResourceCard key={r._id} resource={r} label={String.fromCharCode(65 + idx)} />
-                ))}
-              </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        disabled={loadingSavedId === saved._id}
+                        onClick={() => handleLoadSaved(saved._id)}
+                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 transition-colors"
+                      >
+                        {loadingSavedId === saved._id ? (
+                          <Loader2 className="size-3 animate-spin" />
+                        ) : (
+                          <ChevronRight className="size-3" />
+                        )}
+                        <span>Open</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSaved(saved._id)}
+                        className="rounded-lg p-1.5 text-white/40 hover:bg-red-500/20 hover:text-red-300 transition-colors"
+                        title="Delete report"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
 
-            {/* Pair comparisons */}
-            {result.pairs.map((pair, idx) => (
-              <PairComparison
-                key={idx}
-                pair={pair}
-                labelA={String.fromCharCode(
-                  65 + result.resources.findIndex((r) => r._id === pair.resourceA._id),
-                )}
-                labelB={String.fromCharCode(
-                  65 + result.resources.findIndex((r) => r._id === pair.resourceB._id),
-                )}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Resource overview card ───────────────────────────────────────────────────
-
-function ResourceCard({ resource, label }: { resource: CompareResource; label: string }) {
-  const href =
-    resource.kind === "book" ? `/books/${resource._id}` : `/research/${resource._id}`;
-  return (
-    <div className="rounded-2xl border border-line bg-white p-4 shadow-sm">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="flex size-7 items-center justify-center rounded-full bg-navy text-sm font-bold text-white">
-          {label}
-        </span>
-        <span className="text-[11px] font-semibold tracking-wide text-navy-soft uppercase">
-          {resource.kind === "book" ? "Book" : "Paper"}
-        </span>
-      </div>
-      <p className="font-serif text-base leading-snug text-navy line-clamp-3">{resource.title}</p>
-      <p className="mt-1.5 text-xs text-muted line-clamp-1">
-        {resource.authors.slice(0, 2).join(" · ")} &middot; {resource.year}
-      </p>
-      <p className="mt-1 text-[11px] font-medium tracking-wide text-navy-soft uppercase">
-        {resource.categoryOrField}
-      </p>
-      <Link
-        href={href}
-        className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-navy hover:underline"
-      >
-        View details <ChevronRight className="size-3" />
-      </Link>
-    </div>
-  );
-}
-
-// ─── Pair comparison card ─────────────────────────────────────────────────────
-
-function PairComparison({
-  pair,
-  labelA,
-  labelB,
-}: {
-  pair: ComparisonPair;
-  labelA: string;
-  labelB: string;
-}) {
-  const pct = pair.similarityScore;
-  const barColor =
-    pct >= 75 ? "bg-emerald-500" : pct >= 50 ? "bg-amber-400" : "bg-navy/30";
-
-  return (
-    <div className="rounded-3xl border border-line bg-white shadow-sm overflow-hidden">
-
-      {/* ── Header: labels + similarity ── */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line bg-paper/60 px-6 py-4">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-navy text-xs font-bold text-white">
-            {labelA}
-          </span>
-          <ArrowLeftRight className="size-4 shrink-0 text-muted" />
-          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-navy text-xs font-bold text-white">
-            {labelB}
-          </span>
-          <span className="text-sm font-semibold text-navy truncate ml-1">
-            {pair.resourceA.title.length > 30
-              ? pair.resourceA.title.slice(0, 28) + "…"
-              : pair.resourceA.title}{" "}
-            <span className="font-normal text-muted">vs</span>{" "}
-            {pair.resourceB.title.length > 30
-              ? pair.resourceB.title.slice(0, 28) + "…"
-              : pair.resourceB.title}
-          </span>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs text-muted hidden sm:block">Content similarity</span>
-          <div className="w-24 h-2 rounded-full bg-line overflow-hidden">
-            <div className={cn("h-full rounded-full transition-all", barColor)} style={{ width: `${pct}%` }} />
-          </div>
-          <span className="text-xs font-semibold text-navy">{pct}%</span>
-        </div>
-      </div>
-
-      {/* ── Core ideas ── */}
-      <div className="grid sm:grid-cols-2 border-b border-line">
-        <div className="border-b sm:border-b-0 sm:border-r border-line p-6">
-          <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-700 mb-2">
-            <Lightbulb className="size-3.5" />
-            Core idea of {labelA}
-          </h3>
-          <p className="text-sm leading-relaxed text-navy-mid">{pair.coreIdeaA}</p>
-        </div>
-        <div className="p-6">
-          <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-700 mb-2">
-            <Lightbulb className="size-3.5" />
-            Core idea of {labelB}
-          </h3>
-          <p className="text-sm leading-relaxed text-navy-mid">{pair.coreIdeaB}</p>
-        </div>
-      </div>
-
-      {/* ── Agreements + Differences ── */}
-      <div className="grid sm:grid-cols-2 border-b border-line">
-        <div className="border-b sm:border-b-0 sm:border-r border-line p-6">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-emerald-700 mb-4">
-            <CheckCircle2 className="size-4" />
-            Shared Themes &amp; Methods
-          </h3>
-          {pair.agreements.length === 0 ? (
-            <p className="text-sm text-muted">No clear shared themes detected.</p>
-          ) : (
-            <ul className="space-y-3">
-              {pair.agreements.map((item, i) => (
-                <li key={i} className="flex gap-2.5 text-sm text-navy-mid">
-                  <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">
-                    {i + 1}
-                  </span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="p-6">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-red-600 mb-4">
-            <MinusCircle className="size-4" />
-            Key Differences
-          </h3>
-          {pair.differences.length === 0 ? (
-            <p className="text-sm text-muted">No clear distinctions detected.</p>
-          ) : (
-            <ul className="space-y-3">
-              {pair.differences.map((item, i) => (
-                <li key={i} className="flex gap-2.5 text-sm text-navy-mid">
-                  <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600 text-[10px] font-bold">
-                    {i + 1}
-                  </span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-
-      {/* ── Further study ── */}
-      {pair.furtherStudy.length > 0 && (
-        <div className="border-b border-line px-6 py-5">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-violet-700 mb-4">
-            <Telescope className="size-4" />
-            Suggested Further Reading
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {pair.furtherStudy.map((topic, i) => (
-              <span
-                key={i}
-                className="rounded-full bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 ring-1 ring-violet-200"
+            <div className="flex justify-end pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setIsSavedModalOpen(false)}
+                className="rounded-lg px-4 py-2 text-xs text-white/60 hover:text-white"
               >
-                {topic}
-              </span>
-            ))}
+                Close
+              </button>
+            </div>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* ── Overall insight ── */}
-      <div className="px-6 py-4 bg-navy/[0.03] flex items-start gap-3">
-        <Sparkles className="size-4 shrink-0 text-navy-soft mt-0.5" />
-        <p className="text-sm text-navy-mid italic">{pair.overallInsight}</p>
-      </div>
+      {/* Spacer so floating tray doesn't overlap grid bottom */}
+      <div className="h-24" />
     </div>
   );
 }

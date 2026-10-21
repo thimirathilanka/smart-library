@@ -6,7 +6,7 @@ import { toPlain } from "@/lib/data/serialize";
 import { withPublished } from "@/lib/data/publication";
 import type { Book, ResearchPaper, ResourceKind } from "@/lib/types";
 
-const REASONING_MODEL = "gemini-2.5-flash";
+const REASONING_MODEL = "gemini-3.5-flash-lite";
 const API_URL = "https://generativelanguage.googleapis.com/v1beta";
 
 export type CompareResource = {
@@ -240,7 +240,8 @@ Respond with ONLY a valid JSON object — no markdown fences, no extra text befo
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 700,
+          maxOutputTokens: 900,
+          thinkingConfig: { thinkingBudget: 0 },
         },
       }),
     });
@@ -252,9 +253,16 @@ Respond with ONLY a valid JSON object — no markdown fences, no extra text befo
     }
 
     const data = (await response.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> } }>;
     };
-    let raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+    const parts = data.candidates?.[0]?.content?.parts ?? [];
+    let raw = "";
+    for (const p of parts) {
+      if (p.text && !p.thought) raw = p.text.trim();
+    }
+    if (!raw && parts.length > 0 && parts[0].text) {
+      raw = parts[0].text.trim();
+    }
 
     if (!raw) {
       console.error("[compare] Empty Gemini response");

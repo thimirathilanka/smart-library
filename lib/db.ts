@@ -1,7 +1,7 @@
 import "server-only";
 
 import { GridFSBucket, MongoClient, ObjectId, type Collection, type Db, type Document } from "mongodb";
-import type { ActivityLogRecord, Book, MemberRecord, MonthlyReads, NotificationRecord, ResearchPaper, ResourceRating } from "@/lib/types";
+import type { ActivityLogRecord, Book, MemberRecord, MonthlyReads, NotificationRecord, ResearchPaper, ResourceRating, SavedComparisonRecord } from "@/lib/types";
 import { deleteCloudinaryFile, getCloudinaryFileName, isCloudinaryFile } from "@/lib/cloudinary";
 
 const dbName = process.env.MONGODB_DB ?? "nextgen-library";
@@ -135,6 +135,7 @@ export async function collections() {
     activityLogs: db.collection<ActivityLogRecord>("activityLogs") as Collection<ActivityLogRecord>,
     notifications: db.collection<NotificationRecord>("notifications") as Collection<NotificationRecord>,
     ratings: db.collection<ResourceRating>("ratings") as Collection<ResourceRating>,
+    savedComparisons: db.collection<SavedComparisonRecord>("saved_comparisons") as Collection<SavedComparisonRecord>,
   };
 }
 
