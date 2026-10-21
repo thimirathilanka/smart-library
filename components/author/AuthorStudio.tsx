@@ -91,6 +91,22 @@ export function AuthorStudio({ submissions }: { submissions: AuthorSubmission[] 
 
 function SubmissionRow({ item }: { item: AuthorSubmission }) {
   const [versionOpen, setVersionOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [activeModalNote, setActiveModalNote] = useState<{
+    title: string;
+    type: "submission" | "revision";
+    note: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!activeModalNote) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setActiveModalNote(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeModalNote]);
+
   const fileHref = item.kind === "book" ? `/api/books/${item.id}/file` : `/api/research/${item.id}/file`;
   const coverHref = item.kind === "book" ? `/api/books/${item.id}/cover` : `/api/research/${item.id}/cover`;
   const canEdit = editable.includes(item.status);
@@ -136,9 +152,29 @@ function SubmissionRow({ item }: { item: AuthorSubmission }) {
 
       <div className="mt-3 space-y-2">
         {item.status === "rejected" && item.reviewNote ? (
-          <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-xs leading-5 text-red-800">
-            <span className="font-semibold">Review note: </span>{item.reviewNote}
-          </p>
+          <button
+            type="button"
+            onClick={() =>
+              setActiveModalNote({
+                title: item.title,
+                type: "submission",
+                note: item.reviewNote!,
+              })
+            }
+            className="flex w-full items-center justify-between gap-2 rounded-xl border border-red-500/30 bg-red-950/20 px-3 py-2 text-left text-xs text-red-200 hover:border-red-500/50 hover:bg-red-950/40 transition-all group shadow-sm cursor-pointer"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-500/20 text-red-400">
+                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </span>
+              <span className="truncate font-medium text-red-300">Review feedback attached</span>
+            </div>
+            <span className="shrink-0 text-[11px] font-semibold text-red-400 underline underline-offset-2 group-hover:text-red-300">
+              View note &rarr;
+            </span>
+          </button>
         ) : null}
         {item.revision?.status === "pending" ? (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs leading-5 text-amber-900">
@@ -146,9 +182,29 @@ function SubmissionRow({ item }: { item: AuthorSubmission }) {
           </p>
         ) : null}
         {item.revision?.status === "rejected" && item.revision.reviewNote ? (
-          <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-xs leading-5 text-red-800">
-            <span className="font-semibold">Revision note: </span>{item.revision.reviewNote}
-          </p>
+          <button
+            type="button"
+            onClick={() =>
+              setActiveModalNote({
+                title: item.title,
+                type: "revision",
+                note: item.revision!.reviewNote!,
+              })
+            }
+            className="flex w-full items-center justify-between gap-2 rounded-xl border border-red-500/30 bg-red-950/20 px-3 py-2 text-left text-xs text-red-200 hover:border-red-500/50 hover:bg-red-950/40 transition-all group shadow-sm cursor-pointer"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-500/20 text-red-400">
+                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </span>
+              <span className="truncate font-medium text-red-300">Revision feedback attached</span>
+            </div>
+            <span className="shrink-0 text-[11px] font-semibold text-red-400 underline underline-offset-2 group-hover:text-red-300">
+              View note &rarr;
+            </span>
+          </button>
         ) : null}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           {item.hasFile && item.status !== "published" ? (
@@ -171,7 +227,10 @@ function SubmissionRow({ item }: { item: AuthorSubmission }) {
           {canEdit ? <DeleteSubmission item={item} /> : null}
         </div>
         {canEdit ? (
-          <details>
+          <details
+            open={editOpen}
+            onToggle={(e) => setEditOpen(e.currentTarget.open)}
+          >
             <summary className="cursor-pointer text-xs font-medium text-navy underline underline-offset-2">
               Edit and resubmit
             </summary>
@@ -205,6 +264,106 @@ function SubmissionRow({ item }: { item: AuthorSubmission }) {
           </div>
         ) : null}
       </div>
+
+      {/* Review Note Centered Pop-up Modal */}
+      {activeModalNote ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setActiveModalNote(null);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="review-note-modal-title"
+            className="relative w-full max-w-lg rounded-2xl border border-red-500/30 bg-[#161a18] p-6 text-ink shadow-2xl ring-1 ring-white/10 sm:p-7 animate-in zoom-in-95 duration-150"
+          >
+            {/* Top Close Button */}
+            <button
+              type="button"
+              onClick={() => setActiveModalNote(null)}
+              className="absolute top-4 right-4 rounded-lg p-2 text-white/50 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+              aria-label="Close review note dialog"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Header */}
+            <div className="flex items-start gap-4 pr-6">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-500/15 border border-red-500/30 text-red-400 shadow-sm">
+                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-red-500/20 px-2.5 py-0.5 text-[10px] font-semibold text-red-300 ring-1 ring-red-500/30">
+                    {activeModalNote.type === "revision" ? "Revision Rejected" : "Submission Rejected"}
+                  </span>
+                  <span className="text-[11px] text-white/40 uppercase tracking-wider font-semibold">
+                    {item.kind}
+                  </span>
+                </div>
+                <h3 id="review-note-modal-title" className="mt-1 font-serif text-xl font-medium text-white leading-snug">
+                  {activeModalNote.type === "revision" ? "Revision Review Feedback" : "Editor Review Feedback"}
+                </h3>
+                <p className="mt-0.5 line-clamp-1 text-xs text-white/60">
+                  Document: <span className="text-white/90 font-medium">{item.title}</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Review Note Body Callout */}
+            <div className="mt-5 rounded-xl border border-red-500/25 bg-red-950/30 p-4 sm:p-5">
+              <div className="flex items-center justify-between text-[11px] font-semibold tracking-wider uppercase text-red-400">
+                <span>Reason & Reviewer Note</span>
+                <span className="text-[10px] text-white/40 font-normal">Direct reviewer feedback</span>
+              </div>
+              <div className="mt-2.5 rounded-lg bg-black/30 border border-red-500/20 p-3.5">
+                <p className="text-sm leading-relaxed text-red-100 whitespace-pre-wrap font-sans">
+                  {activeModalNote.note}
+                </p>
+              </div>
+            </div>
+
+            {/* Helpful guidance */}
+            <p className="mt-4 text-xs leading-relaxed text-white/60">
+              Please address the points noted by the review team above. You can update your submission details, upload a revised PDF or cover image, and resubmit for review.
+            </p>
+
+            {/* Footer Actions */}
+            <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-white/10 pt-4">
+              <button
+                type="button"
+                onClick={() => setActiveModalNote(null)}
+                className="rounded-xl border border-white/15 px-4 py-2 text-xs font-medium text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+              {canEdit ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveModalNote(null);
+                    setEditOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-red-600/30 hover:bg-red-500 transition-colors cursor-pointer"
+                >
+                  <span>Edit & Resubmit</span>
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </article>
   );
 }
