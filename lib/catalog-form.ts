@@ -75,9 +75,10 @@ function doiOf(value: string): { ok: true; doi: string } | { ok: false; error: s
 
 function bookPagesOf(value: FormDataEntryValue | null): { ok: true; pages: number } | { ok: false; error: string } {
   const raw = String(value ?? "").trim();
+  if (!raw) return { ok: true, pages: 0 };
   if (!/^\d+$/.test(raw)) return { ok: false, error: "Enter the page count as a whole number." };
   const pages = Number(raw);
-  if (pages < 1 || pages > 100_000) return { ok: false, error: "Page count must be between 1 and 100000." };
+  if (pages < 0 || pages > 100_000) return { ok: false, error: "Page count must be between 0 and 100000." };
   return { ok: true, pages };
 }
 

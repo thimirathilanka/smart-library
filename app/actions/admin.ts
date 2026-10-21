@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
-import { extractPdfExcerpt } from "@/lib/ai/pdf-excerpt";
+import { extractPdfExcerpt, getPdfPageCount } from "@/lib/ai/pdf-excerpt";
 import { summarizeForCatalog } from "@/lib/ai/summarize";
 import { draftFromForm, editsFromForm } from "@/lib/catalog-form";
 import { createBook, deleteBook, getBookForStaff, publishBook, rejectBook, setBookSummary, updateBook } from "@/lib/data/books";
@@ -107,7 +107,12 @@ export async function createResourceAction(_prev: CatalogState, formData: FormDa
   }
 
   try {
-    await createBook({ ...draft.book, ...stored });
+    let bookPages = draft.book.pages;
+    if (upload.fileId) {
+      const detected = await getPdfPageCount(upload.fileId);
+      if (detected) bookPages = detected;
+    }
+    await createBook({ ...draft.book, ...stored, pages: bookPages || 1 });
   } catch {
     await discardGridFsFiles([upload.fileId, upload.coverId]);
     return { error: "The book could not be added. Please try again." };

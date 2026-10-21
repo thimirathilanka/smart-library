@@ -470,7 +470,7 @@ function CatalogAdminRow({
             onClick={(event) => {
               if (event.target === editDialogRef.current) editDialogRef.current?.close();
             }}
-            className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto rounded-xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:bg-navy/45 backdrop:backdrop-blur-sm"
+            className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto rounded-xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:backdrop-blur-md backdrop:bg-transparent"
             aria-labelledby={`edit-resource-title-${kind}-${id}`}
           >
             <div className="p-5 sm:p-6">
@@ -511,7 +511,7 @@ function CatalogAdminRow({
                 deleteDialogRef.current?.close();
               }
             }}
-            className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:bg-navy/45 backdrop:backdrop-blur-sm"
+            className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:backdrop-blur-md backdrop:bg-transparent"
             aria-labelledby={`delete-resource-title-${kind}-${id}`}
             aria-describedby={`delete-resource-description-${kind}-${id}`}
           >
@@ -684,7 +684,7 @@ function MemberRow({
           onCancel={(event) => {
             if (pending) event.preventDefault();
           }}
-          className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:bg-navy/45 backdrop:backdrop-blur-sm"
+          className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:backdrop-blur-md backdrop:bg-transparent"
           aria-labelledby={`member-action-title-${member._id}`}
           aria-describedby={`member-action-description-${member._id}`}
         >

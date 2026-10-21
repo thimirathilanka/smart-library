@@ -259,7 +259,7 @@ function WithdrawButton({ item }: { item: AuthorSubmission }) {
         onClick={(event) => {
           if (event.target === dialogRef.current && !pending) dialogRef.current?.close();
         }}
-        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:bg-navy/45"
+        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:backdrop-blur-md backdrop:bg-transparent"
       >
         <form action={action} className="p-5">
           <input type="hidden" name="id" value={item.id} />
@@ -333,7 +333,7 @@ function DeleteSubmission({ item }: { item: AuthorSubmission }) {
         onClick={(event) => {
           if (event.target === dialogRef.current && !pending) dialogRef.current?.close();
         }}
-        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:bg-navy/45"
+        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:backdrop-blur-md backdrop:bg-transparent"
       >
         <form action={action} className="p-5">
           <input type="hidden" name="id" value={item.id} />

@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
-import { Upload, X } from "lucide-react";
+import { startTransition, useActionState, useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
+import { AlertCircle, CheckCircle2, Upload, X } from "lucide-react";
 import { cn } from "@/lib/format";
 import type { AccessType, PublicationStatus, ResourceKind } from "@/lib/types";
 
@@ -120,6 +120,13 @@ export function ResourceForm({
   const [fileDropError, setFileDropError] = useState<string | null>(null);
   const [coverDropError, setCoverDropError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<"file" | "cover" | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+  const [popup, setPopup] = useState<{
+    type: "success" | "error";
+    title: string;
+    message: string;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const selected = lockKind ?? kind;
@@ -127,7 +134,23 @@ export function ResourceForm({
   const coverKept = Boolean(nextCoverName) || (initial?.hasCover ? keepCover : !initial?.clearCover);
 
   useEffect(() => {
+    setUploading(false);
+    setUploadProgress(null);
+    if (state.success) {
+      setPopup({
+        type: "success",
+        title: "Successfully Saved!",
+        message: state.warning ? `${state.success} (${state.warning})` : state.success,
+      });
+      const timer = setTimeout(() => setPopup(null), 6000);
+      return () => clearTimeout(timer);
+    }
     if (state.error) {
+      setPopup({
+        type: "error",
+        title: "Upload Failed",
+        message: state.error,
+      });
       if (selectedFileRef.current) {
         placeFile(fileInputRef.current, selectedFileRef.current);
         setNextFileName(selectedFileRef.current.name);
@@ -246,15 +269,123 @@ export function ResourceForm({
     };
   }
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     if (manageExistingFiles && storedFileName && !keepFile && !nextFileName) {
       event.preventDefault();
       setClientError("Add a PDF to replace the current one.");
+      return;
+    }
+
+    if (selectedFile) {
+      event.preventDefault();
+      setClientError(null);
+      setUploading(true);
+      setUploadProgress("Preparing upload…");
+
+      const formElement = event.currentTarget;
+
+      try {
+        const signRes = await fetch("/api/upload/cloudinary-sign", { method: "POST" });
+        const signData = await signRes.json().catch(() => null);
+
+        let uploadedFileId: string | undefined;
+
+        if (signData?.configured) {
+          setUploadProgress("Uploading PDF to Cloudinary…");
+          const uploadData = new FormData();
+          uploadData.append("file", selectedFile);
+          uploadData.append("api_key", signData.apiKey);
+          uploadData.append("timestamp", String(signData.timestamp));
+          uploadData.append("signature", signData.signature);
+          uploadData.append("folder", signData.folder);
+
+          const cRes = await fetch(`https://api.cloudinary.com/v1_1/${signData.cloudName}/raw/upload`, {
+            method: "POST",
+            body: uploadData,
+          });
+
+          if (!cRes.ok) {
+            const errJson = await cRes.json().catch(() => null);
+            throw new Error(errJson?.error?.message || "Failed to upload PDF to Cloudinary.");
+          }
+
+          const cData = await cRes.json();
+          uploadedFileId = `cloudinary:${cData.public_id}:${cData.secure_url}`;
+        } else if (selectedFile.size > 4.5 * 1024 * 1024) {
+          throw new Error("PDF exceeds 4.5 MB. Configure Cloudinary credentials in .env.local to enable large PDF uploads on Vercel.");
+        }
+
+        const formData = new FormData(formElement);
+
+        if (uploadedFileId) {
+          formData.set("cloudinaryFileId", uploadedFileId);
+          formData.delete("file");
+        }
+
+        setUploadProgress(null);
+        setUploading(false);
+
+        startTransition(() => {
+          formAction(formData);
+        });
+      } catch (err) {
+        setUploading(false);
+        setUploadProgress(null);
+        const errMsg = err instanceof Error ? err.message : "PDF upload failed.";
+        setClientError(errMsg);
+        setPopup({
+          type: "error",
+          title: "Upload Failed",
+          message: errMsg,
+        });
+      }
     }
   }
 
   return (
     <div>
+      {popup ? (
+        <div
+          role="alert"
+          className="fixed top-6 right-6 left-6 sm:left-auto sm:w-[26rem] z-[99999] flex items-start gap-3 rounded-2xl border border-line bg-white/95 backdrop-blur-md p-4 shadow-[0_20px_60px_rgba(11,31,58,0.25)] transition-all animate-in fade-in slide-in-from-top-4 duration-300"
+        >
+          <div
+            className={cn(
+              "flex size-10 shrink-0 items-center justify-center rounded-xl",
+              popup.type === "success"
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-red-100 text-red-700"
+            )}
+          >
+            {popup.type === "success" ? (
+              <CheckCircle2 className="size-5" />
+            ) : (
+              <AlertCircle className="size-5" />
+            )}
+          </div>
+          <div className="flex-1 pt-0.5">
+            <h4
+              className={cn(
+                "text-sm font-semibold",
+                popup.type === "success" ? "text-emerald-950" : "text-red-950"
+              )}
+            >
+              {popup.title}
+            </h4>
+            <p className="mt-1 text-xs text-muted leading-relaxed">
+              {popup.message}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPopup(null)}
+            className="rounded-lg p-1 text-muted hover:bg-paper hover:text-navy transition-colors"
+            aria-label="Close notification"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      ) : null}
       {lockKind ? null : (
         <div className={authorLayout ? "mb-5 grid gap-3 sm:grid-cols-2" : "mb-4 flex gap-2"}>
           {(["book", "paper"] as const).map((item) => (
@@ -448,20 +579,9 @@ export function ResourceForm({
             maxLength={2000}
           />
         )}
-        {selected === "book" ? (
-          <Field
-            label="Pages"
-            name="pages"
-            type="number"
-            required
-            min={1}
-            max={100000}
-            value={values.pages}
-            onValueChange={changeValue}
-          />
-        ) : (
+        {selected === "paper" ? (
           <Field label="Page range" name="pages" value={values.pages} onValueChange={changeValue} maxLength={40} />
-        )}
+        ) : null}
         {selected === "paper" ? (
           <label className="text-xs font-semibold tracking-wide text-muted uppercase">
             Venue type
@@ -555,10 +675,10 @@ export function ResourceForm({
         </div>
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || uploading}
           className={cn("rounded-full bg-navy px-5 py-2.5 text-sm font-medium text-white hover:bg-navy-mid disabled:opacity-60", authorLayout ? "lg:col-span-2" : "sm:col-span-2")}
         >
-          {pending ? pendingLabel : submitLabel}
+          {uploading ? (uploadProgress ?? "Uploading…") : pending ? pendingLabel : submitLabel}
         </button>
       </form>
     </div>

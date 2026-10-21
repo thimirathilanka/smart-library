@@ -2,17 +2,31 @@ import "server-only";
 
 import { getDocumentProxy } from "unpdf";
 import { openGridFsFile } from "@/lib/db";
+import { fetchCloudinaryBytes, isCloudinaryFile } from "@/lib/cloudinary";
 
 const PAGE_LIMIT = 8;
 const CHAR_LIMIT = 12_000;
 const MIN_WORDS = 8;
 
-export async function extractPdfExcerpt(fileId: string | undefined): Promise<string | null> {
-  if (!fileId) return null;
+async function readFileBytes(fileId: string): Promise<Uint8Array | null> {
+  if (isCloudinaryFile(fileId)) {
+    return fetchCloudinaryBytes(fileId);
+  }
   try {
     const opened = await openGridFsFile(fileId);
     if (!opened) return null;
-    return excerptFromPdf(new Uint8Array(await readToBuffer(opened.stream)));
+    return new Uint8Array(await readToBuffer(opened.stream));
+  } catch {
+    return null;
+  }
+}
+
+export async function extractPdfExcerpt(fileId: string | undefined): Promise<string | null> {
+  if (!fileId) return null;
+  try {
+    const bytes = await readFileBytes(fileId);
+    if (!bytes) return null;
+    return excerptFromPdf(bytes);
   } catch {
     return null;
   }
@@ -22,9 +36,9 @@ export async function getPdfPageCount(fileId: string | undefined): Promise<numbe
   if (!fileId) return null;
   let pdf: Awaited<ReturnType<typeof getDocumentProxy>> | undefined;
   try {
-    const opened = await openGridFsFile(fileId);
-    if (!opened) return null;
-    pdf = await getDocumentProxy(new Uint8Array(await readToBuffer(opened.stream)));
+    const bytes = await readFileBytes(fileId);
+    if (!bytes) return null;
+    pdf = await getDocumentProxy(bytes);
     return pdf.numPages;
   } catch {
     return null;
