@@ -1,40 +1,44 @@
 import { auth } from "@/auth";
-import { getMemberById, hasActiveMembership } from "@/lib/data/members";
 import { listBooks } from "@/lib/data/books";
 import { listPapers } from "@/lib/data/papers";
+import { listUserSavedComparisons } from "@/lib/data/saved-comparisons";
 import { ComparisonLab } from "@/components/compare/ComparisonLab";
 
+export const maxDuration = 60;
+
 export const metadata = {
-  title: "Comparison Lab — Smart Library",
-  description: "Compare books and research papers side by side with AI-powered insights.",
+  title: "AI Comparison Lab — Nextgen Digital Library",
+  description:
+    "Intelligently compare 2 to 4 books and research papers with evidence-backed AI analysis, matrix benchmarks, and citations.",
 };
 
 export default async function ComparePage() {
   const session = await auth();
 
-  // Must be logged in – otherwise show login prompt
   if (!session?.user?.id) {
     return (
-      <div className="mx-auto max-w-2xl p-8 text-center">
-        <p className="mb-4 text-lg text-muted">You need to be logged in to use the Comparison Lab.</p>
-        <a href="/login?callbackUrl=/compare" className="inline-block rounded-full bg-navy px-6 py-2 text-white hover:bg-navy/80">Log in</a>
+      <div className="mx-auto max-w-2xl px-4 py-16 text-center">
+        <div className="rounded-2xl border border-white/10 bg-[#161a18] p-8 shadow-xl">
+          <h2 className="font-serif text-2xl text-white">AI Comparison Lab</h2>
+          <p className="mt-2 text-sm text-white/60">
+            Sign in to compare multiple books and research papers side by side with AI-powered evidence synthesis.
+          </p>
+          <a
+            href="/login?callbackUrl=/compare"
+            className="mt-6 inline-block rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 transition-colors"
+          >
+            Log in to Access Comparison Lab
+          </a>
+        </div>
       </div>
     );
   }
 
-  const member = await getMemberById(session.user.id);
-  const hasAccess = session.user.isAdmin || hasActiveMembership(member);
-
-  if (!hasAccess) {
-    return (
-      <div className="mx-auto max-w-2xl p-8 text-center">
-        <p className="mb-4 text-lg text-muted">The Comparison Lab is a member‑only feature.</p>
-        <a href="/membership?feature=compare" className="inline-block rounded-full bg-navy px-6 py-2 text-white hover:bg-navy/80">Upgrade Membership</a>
-      </div>
-    );
-  }
-
-  const [books, papers] = await Promise.all([listBooks(), listPapers()]);
+  const [books, papers, savedReports] = await Promise.all([
+    listBooks(),
+    listPapers(),
+    listUserSavedComparisons(session.user.id),
+  ]);
 
   const bookHits = books.map((b) => ({
     _id: b._id,
@@ -43,6 +47,9 @@ export default async function ComparePage() {
     authors: b.authors && b.authors.length > 0 ? b.authors : [b.author],
     year: b.year,
     categoryOrField: b.category,
+    coverId: b.coverId,
+    cover: b.cover,
+    fileId: b.fileId,
   }));
 
   const paperHits = papers.map((p) => ({
@@ -52,7 +59,15 @@ export default async function ComparePage() {
     authors: p.authors,
     year: p.year,
     categoryOrField: p.field,
+    coverId: p.coverId,
+    fileId: p.fileId,
   }));
 
-  return <ComparisonLab initialBooks={bookHits} initialPapers={paperHits} />;
+  return (
+    <ComparisonLab
+      initialBooks={bookHits}
+      initialPapers={paperHits}
+      initialSavedReports={savedReports}
+    />
+  );
 }

@@ -21,6 +21,50 @@ async function readFileBytes(fileId: string): Promise<Uint8Array | null> {
   }
 }
 
+export type PdfPageSnippet = {
+  pageNumber: number;
+  text: string;
+};
+
+export async function extractPdfPageSnippets(
+  fileId: string | undefined,
+  maxPages = 10,
+): Promise<PdfPageSnippet[]> {
+  if (!fileId) return [];
+  let pdf: Awaited<ReturnType<typeof getDocumentProxy>> | undefined;
+  try {
+    const bytes = await readFileBytes(fileId);
+    if (!bytes) return [];
+    pdf = await getDocumentProxy(bytes);
+    const pageCount = Math.min(pdf.numPages, maxPages);
+    const snippets: PdfPageSnippet[] = [];
+
+    for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const content = await page.getTextContent();
+      const pageText = content.items
+        .map((item) => ("str" in item && typeof item.str === "string" ? item.str : ""))
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .replace(/\u0000/g, "")
+        .trim();
+
+      if (pageText.length > 20) {
+        snippets.push({
+          pageNumber: pageNum,
+          text: pageText.slice(0, 1800),
+        });
+      }
+    }
+
+    return snippets;
+  } catch {
+    return [];
+  } finally {
+    if (pdf) await pdf.loadingTask.destroy().catch(() => undefined);
+  }
+}
+
 export async function extractPdfExcerpt(fileId: string | undefined): Promise<string | null> {
   if (!fileId) return null;
   try {

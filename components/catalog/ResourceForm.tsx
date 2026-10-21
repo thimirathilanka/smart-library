@@ -3,6 +3,7 @@
 import { startTransition, useActionState, useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { AlertCircle, CheckCircle2, Upload, X } from "lucide-react";
 import { cn } from "@/lib/format";
+import { STANDARD_TOPICS } from "@/lib/categories";
 import type { AccessType, PublicationStatus, ResourceKind } from "@/lib/types";
 
 type FormState = {
@@ -558,9 +559,21 @@ export function ResourceForm({
           <Field label="DOI" name="doi" value={values.doi} onValueChange={changeValue} maxLength={200} />
         )}
         {selected === "book" ? (
-          <Field label="Category" name="category" value={values.category} onValueChange={changeValue} required maxLength={80} />
+          <CategorySelectField
+            label="Category"
+            name="category"
+            value={values.category}
+            onValueChange={changeValue}
+            required
+          />
         ) : (
-          <Field label="Research field" name="field" value={values.field} onValueChange={changeValue} required maxLength={80} />
+          <CategorySelectField
+            label="Research field"
+            name="field"
+            value={values.field}
+            onValueChange={changeValue}
+            required
+          />
         )}
         {selected === "book" ? (
           <Field label="Publisher" name="publisher" value={values.publisher} onValueChange={changeValue} required maxLength={120} />
@@ -706,6 +719,95 @@ function ExistingFile({
         <X className="size-4" aria-hidden="true" />
       </button>
     </span>
+  );
+}
+
+function CategorySelectField({
+  label,
+  name,
+  value,
+  onValueChange,
+  required = false,
+}: {
+  label: string;
+  name: "category" | "field";
+  value: string;
+  onValueChange: (name: keyof EditableValues, value: string) => void;
+  required?: boolean;
+}) {
+  const [customMode, setCustomMode] = useState(() => {
+    return Boolean(value && !STANDARD_TOPICS.includes(value as any));
+  });
+
+  const allOptions = Array.from(
+    new Set([...STANDARD_TOPICS, ...(value && !customMode ? [value] : [])]),
+  ).sort((a, b) => a.localeCompare(b));
+
+  return (
+    <div className="flex flex-col">
+      <div className="flex items-center justify-between">
+        <label htmlFor={`select-${name}`} className="text-xs font-semibold tracking-wide text-muted uppercase">
+          {label}
+        </label>
+        <button
+          type="button"
+          onClick={() => {
+            if (customMode) {
+              setCustomMode(false);
+              if (!STANDARD_TOPICS.includes(value as any)) {
+                onValueChange(name, STANDARD_TOPICS[0]);
+              }
+            } else {
+              setCustomMode(true);
+            }
+          }}
+          className="text-[11px] font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
+        >
+          {customMode ? "Choose from list" : "+ Custom / other"}
+        </button>
+      </div>
+
+      {customMode ? (
+        <input
+          id={`select-${name}`}
+          name={name}
+          type="text"
+          required={required}
+          maxLength={80}
+          value={value}
+          placeholder={`e.g. Folk Tales, Laboratory Science`}
+          onChange={(e) => onValueChange(name, e.target.value)}
+          className="mt-1.5 w-full rounded-lg border border-line px-3 py-2 text-sm font-normal text-ink outline-none focus:border-emerald-500"
+        />
+      ) : (
+        <select
+          id={`select-${name}`}
+          name={name}
+          required={required}
+          value={value}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === "__custom__") {
+              setCustomMode(true);
+              onValueChange(name, "");
+            } else {
+              onValueChange(name, val);
+            }
+          }}
+          className="mt-1.5 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm font-normal text-ink outline-none focus:border-emerald-500"
+        >
+          <option value="" disabled>
+            Select a {label.toLowerCase()}...
+          </option>
+          {allOptions.map((topic) => (
+            <option key={topic} value={topic}>
+              {topic}
+            </option>
+          ))}
+          <option value="__custom__">+ Enter custom {label.toLowerCase()}...</option>
+        </select>
+      )}
+    </div>
   );
 }
 

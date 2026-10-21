@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import {
   BookOpen,
@@ -53,19 +53,65 @@ export function SemanticFinder({
 
   const combinedTopics = Array.from(new Set([...categories, ...fields])).sort();
 
-  function runSearch(searchQuery: string) {
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      if (activeQuery) {
+        setActiveQuery("");
+        setResults(initialResults);
+        setError("");
+      }
+      return;
+    }
+
+    if (trimmed.length < 2) return;
+
+    const timer = setTimeout(() => {
+      runSearch(trimmed);
+    }, 450);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
+  const displayedResults = results.filter((item) => {
+    if (kindFilter !== "all" && item.kind !== kindFilter) return false;
+    if (topicFilter !== "all" && item.categoryOrField !== topicFilter) return false;
+    if (yearFilter !== "all" && String(item.year) !== yearFilter) return false;
+    if (accessFilter !== "all" && item.access !== accessFilter) return false;
+    return true;
+  });
+
+  function runSearch(
+    searchQuery: string,
+    filterOverrides?: {
+      kind?: "all" | "book" | "paper";
+      categoryOrField?: string;
+      year?: string;
+      access?: "all" | AccessType;
+    },
+  ) {
     const q = searchQuery.trim();
     if (!q) return;
+
+    const targetKind = filterOverrides?.kind !== undefined ? filterOverrides.kind : kindFilter;
+    const targetTopic =
+      filterOverrides?.categoryOrField !== undefined
+        ? filterOverrides.categoryOrField
+        : topicFilter;
+    const targetYear = filterOverrides?.year !== undefined ? filterOverrides.year : yearFilter;
+    const targetAccess =
+      filterOverrides?.access !== undefined ? filterOverrides.access : accessFilter;
 
     setError("");
     setActiveQuery(q);
 
     startTransition(async () => {
       const response = await executeSemanticSearchAction(q, {
-        kind: kindFilter,
-        categoryOrField: topicFilter,
-        year: yearFilter,
-        access: accessFilter,
+        kind: targetKind,
+        categoryOrField: targetTopic,
+        year: targetYear,
+        access: targetAccess,
       });
 
       if (!response.success) {
@@ -181,7 +227,7 @@ export function SemanticFinder({
               type="button"
               onClick={() => {
                 setKindFilter("all");
-                if (activeQuery) runSearch(activeQuery);
+                if (activeQuery) runSearch(activeQuery, { kind: "all" });
               }}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                 kindFilter === "all"
@@ -195,7 +241,7 @@ export function SemanticFinder({
               type="button"
               onClick={() => {
                 setKindFilter("book");
-                if (activeQuery) runSearch(activeQuery);
+                if (activeQuery) runSearch(activeQuery, { kind: "book" });
               }}
               className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                 kindFilter === "book"
@@ -210,7 +256,7 @@ export function SemanticFinder({
               type="button"
               onClick={() => {
                 setKindFilter("paper");
-                if (activeQuery) runSearch(activeQuery);
+                if (activeQuery) runSearch(activeQuery, { kind: "paper" });
               }}
               className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                 kindFilter === "paper"
@@ -234,8 +280,9 @@ export function SemanticFinder({
             <select
               value={topicFilter}
               onChange={(e) => {
-                setTopicFilter(e.target.value);
-                if (activeQuery) runSearch(activeQuery);
+                const val = e.target.value;
+                setTopicFilter(val);
+                if (activeQuery) runSearch(activeQuery, { categoryOrField: val });
               }}
               className="rounded-lg border border-white/10 bg-black/40 px-3 py-1.5 text-xs text-white outline-none focus:border-emerald-500"
             >
@@ -251,8 +298,9 @@ export function SemanticFinder({
             <select
               value={yearFilter}
               onChange={(e) => {
-                setYearFilter(e.target.value);
-                if (activeQuery) runSearch(activeQuery);
+                const val = e.target.value;
+                setYearFilter(val);
+                if (activeQuery) runSearch(activeQuery, { year: val });
               }}
               className="rounded-lg border border-white/10 bg-black/40 px-3 py-1.5 text-xs text-white outline-none focus:border-emerald-500"
             >
@@ -268,8 +316,9 @@ export function SemanticFinder({
             <select
               value={accessFilter}
               onChange={(e) => {
-                setAccessFilter(e.target.value as "all" | AccessType);
-                if (activeQuery) runSearch(activeQuery);
+                const val = e.target.value as "all" | AccessType;
+                setAccessFilter(val);
+                if (activeQuery) runSearch(activeQuery, { access: val });
               }}
               className="rounded-lg border border-white/10 bg-black/40 px-3 py-1.5 text-xs text-white outline-none focus:border-emerald-500"
             >
@@ -300,7 +349,7 @@ export function SemanticFinder({
           )}
         </h2>
         <span className="text-xs text-white/50">
-          {results.length} {results.length === 1 ? "resource" : "resources"} found
+          {displayedResults.length} {displayedResults.length === 1 ? "resource" : "resources"} found
         </span>
       </div>
 
@@ -318,19 +367,46 @@ export function SemanticFinder({
             </div>
           ))}
         </div>
-      ) : results.length === 0 ? (
+      ) : displayedResults.length === 0 ? (
         /* Empty State */
         <div className="mt-12 rounded-2xl border border-white/10 bg-[#161a18] p-12 text-center">
-          <Sparkles className="mx-auto size-12 text-emerald-400/40" />
-          <h3 className="mt-4 font-serif text-lg text-white">No semantic matches found</h3>
-          <p className="mt-1 text-sm text-white/50">
-            Try phrasing your research query differently or remove some filters.
+          <div className="mx-auto flex size-14 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/5">
+            <Sparkles className="size-7 text-emerald-400/60" />
+          </div>
+          <h3 className="mt-4 font-serif text-xl font-medium text-white">
+            {activeQuery ? (
+              <>No semantic matches for &ldquo;{activeQuery}&rdquo;</>
+            ) : (
+              <>No resources match your filters</>
+            )}
+          </h3>
+          <p className="mx-auto mt-2 max-w-lg text-sm text-white/60">
+            {activeQuery ? (
+              <>
+                No books or research papers in the digital library match this query. Discover is powered by semantic vector matching and academic keywords — try querying related subjects or explore the suggestions below.
+              </>
+            ) : (
+              <>Try clearing or adjusting your topic, year, or access filters to see more resources.</>
+            )}
           </p>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+            <span className="w-full text-xs text-white/40 mb-1">Try one of these topics instead:</span>
+            {EXAMPLE_QUERIES.slice(0, 3).map((example) => (
+              <button
+                key={example}
+                type="button"
+                onClick={() => handleChipClick(example)}
+                className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+              >
+                &ldquo;{example}&rdquo;
+              </button>
+            ))}
+          </div>
         </div>
       ) : (
         /* Results List */
         <div className="mt-6 space-y-5">
-          {results.map((item) => (
+          {displayedResults.map((item) => (
             <article
               key={`${item.kind}-${item._id}`}
               className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[#151917] p-5 shadow-sm hover:border-emerald-500/40 hover:bg-[#1a201c] transition-all"

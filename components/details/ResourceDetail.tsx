@@ -90,7 +90,7 @@ export function BookDetail({
           </div>
           <ResourceRatingForm kind="book" resourceId={book._id} signedIn={signedIn} userRating={userRating} />
           <p className="mt-6 max-w-3xl text-base leading-8 text-muted">{book.description}</p>
-          {book.aiSummary && canOpen ? (
+          {book.aiSummary ? (
             <AiSummaryCallout summary={book.aiSummary} />
           ) : null}
           <dl className="mt-8 grid gap-4 rounded-2xl border border-line bg-white p-5 sm:grid-cols-2">
@@ -215,7 +215,7 @@ export function PaperDetail({
             </h2>
             <p className="mt-2 text-sm leading-7 text-muted">{paper.abstract}</p>
           </section>
-          {paper.aiSummary && canOpen ? (
+          {paper.aiSummary ? (
             <AiSummaryCallout summary={paper.aiSummary} />
           ) : null}
           <div className="mt-4 flex flex-wrap gap-1.5">
