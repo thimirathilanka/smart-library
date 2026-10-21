@@ -1,6 +1,7 @@
 import { preflight } from "@/lib/api/cors";
 import { filterBooks } from "@/lib/api/catalog-filter";
-import { jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk } from "@/lib/api/http";
+import { requireMobileMember } from "@/lib/api/mobile-auth";
 import { listBooks } from "@/lib/data/books";
 
 export const runtime = "nodejs";
@@ -10,6 +11,9 @@ export function OPTIONS(request: Request) {
 }
 
 export async function GET(request: Request) {
+  const access = await requireMobileMember(request);
+  if (!access.ok) return jsonError(request, access.error, access.status);
+
   const { searchParams } = new URL(request.url);
   const search = searchParams.get("q") ?? undefined;
   const category = searchParams.get("category") ?? undefined;
