@@ -1,6 +1,7 @@
 import "server-only";
 
-import { deleteGridFsFile, uploadGridFsFile } from "@/lib/db";
+import { deleteGridFsFile, discardGridFsFiles, uploadGridFsFile } from "@/lib/db";
+import { isCloudinaryFile } from "@/lib/cloudinary";
 
 export const MAX_PDF_SIZE = 25 * 1024 * 1024;
 export const MAX_COVER_SIZE = 2 * 1024 * 1024;
@@ -62,15 +63,23 @@ export async function saveCoverUpload(value: FormDataEntryValue | null) {
 }
 
 export async function readCatalogUploads(formData: FormData, pdf: "required" | "optional") {
-  const file = pdf === "required" ? await savePdfUpload(formData.get("file")) : await saveReplacementPdf(formData.get("file"));
+  const cloudinaryFileId = formData.get("cloudinaryFileId");
+  let file: { ok: true; fileId?: string } | { ok: false; error: string };
+
+  if (typeof cloudinaryFileId === "string" && cloudinaryFileId.trim()) {
+    file = { ok: true, fileId: cloudinaryFileId.trim() };
+  } else {
+    file = pdf === "required" ? await savePdfUpload(formData.get("file")) : await saveReplacementPdf(formData.get("file"));
+  }
+
   if (!file.ok) return file;
   const cover = await saveReplacementCover(formData.get("cover"));
   if (!cover.ok) {
-    if (file.fileId) await deleteGridFsFile(file.fileId);
+    if (file.fileId) await discardGridFsFiles([file.fileId]);
     return cover;
   }
   if (formData.get("keepFile") === "0" && !file.fileId) {
-    if (cover.coverId) await deleteGridFsFile(cover.coverId);
+    if (cover.coverId) await discardGridFsFiles([cover.coverId]);
     return { ok: false as const, error: "Add a PDF to replace the current one." };
   }
   return {

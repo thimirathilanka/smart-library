@@ -251,7 +251,7 @@ function MembershipCancelButton({ autoRenewActive }: { autoRenewActive: boolean 
         onClick={(event) => {
           if (event.target === dialogRef.current && !pending) dialogRef.current?.close();
         }}
-        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:bg-navy/45 backdrop:backdrop-blur-sm"
+        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:backdrop-blur-md backdrop:bg-transparent"
         aria-labelledby="cancel-membership-title"
         aria-describedby="cancel-membership-description"
       >

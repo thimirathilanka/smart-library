@@ -64,51 +64,74 @@ export function NotificationPopover({
       >
         <Bell className="size-4" />
         {unreadCount ? (
-          <span className="absolute -top-1 -right-1 flex min-w-4 items-center justify-center rounded-full bg-amber px-1 text-[10px] font-bold leading-4 text-white">
+          <span className="absolute -top-1 -right-1 flex min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-4 text-white shadow-sm">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         ) : null}
       </button>
 
       {open ? (
-        <section role="dialog" aria-label="Notifications" className="absolute top-full right-0 z-50 mt-3 flex max-h-[min(34rem,calc(100vh-6rem))] w-[min(23rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-line bg-white shadow-[0_18px_48px_rgba(11,31,58,0.18)]">
-          <header className="flex items-center justify-between border-b border-line px-4 py-3.5">
+        <section role="dialog" aria-label="Notifications" className="absolute top-full right-0 z-50 mt-3 flex max-h-[min(34rem,calc(100vh-6rem))] w-[min(23rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-line bg-[#1b1c1f] shadow-[0_24px_60px_rgba(0,0,0,0.85)]">
+          <header className="flex items-center justify-between border-b border-line bg-[#1b1c1f] px-4 py-3.5">
             <div>
               <h2 className="text-sm font-semibold text-navy">Notifications</h2>
               <p className="mt-0.5 text-xs text-muted">{unreadCount ? `${unreadCount} unread` : "You’re all caught up"}</p>
             </div>
             <div className="flex items-center gap-1">
               {unreadCount ? (
-                <button type="button" onClick={markAllRead} disabled={isPending} className="rounded-lg px-2 py-1.5 text-xs font-medium text-navy-soft hover:bg-paper hover:text-navy disabled:opacity-50">
+                <button type="button" onClick={markAllRead} disabled={isPending} className="rounded-lg px-2 py-1.5 text-xs font-medium text-navy-soft hover:bg-[#25282e] hover:text-navy disabled:opacity-50">
                   Mark all read
                 </button>
               ) : null}
-              <button type="button" onClick={() => setOpen(false)} aria-label="Close notifications" className="rounded-lg p-1.5 text-muted hover:bg-paper hover:text-navy">
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close notifications" className="rounded-lg p-1.5 text-muted hover:bg-[#25282e] hover:text-navy">
                 <X className="size-4" />
               </button>
             </div>
           </header>
 
-          <div className="overflow-y-auto">
+          <div className="overflow-y-auto bg-[#1b1c1f]">
             {notifications.length ? notifications.map((item) => (
               <Link
                 key={item.id}
                 href={item.href}
                 onClick={() => followNotification(item)}
-                className={`flex gap-3 border-b border-line/70 px-4 py-3.5 transition hover:bg-paper/80 ${item.read ? "" : "bg-sky-50/60"}`}
+                className={`flex gap-3 border-b border-line/70 px-4 py-3.5 transition ${
+                  item.read
+                    ? "bg-[#1b1c1f] opacity-70 hover:opacity-100 hover:bg-[#24272d]"
+                    : "bg-[#25282e] border-l-[3.5px] border-l-red-500 pl-3.5 hover:bg-[#2c3038]"
+                }`}
               >
-                <span className={`mt-1.5 size-2 shrink-0 rounded-full ${item.read ? "bg-transparent" : "bg-amber"}`} aria-hidden="true" />
+                <span
+                  className={`mt-1.5 size-2.5 shrink-0 rounded-full ${
+                    item.read
+                      ? "bg-transparent"
+                      : "bg-red-500 ring-4 ring-red-500/25"
+                  }`}
+                  aria-hidden="true"
+                />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-start justify-between gap-2">
-                    <span className="text-sm font-semibold leading-5 text-navy">{item.title}</span>
-                    {item.read ? <Check className="mt-0.5 size-3.5 shrink-0 text-muted" aria-label="Read" /> : null}
+                    <span className={`text-sm leading-5 ${item.read ? "font-medium text-ink/80" : "font-bold text-ink"}`}>
+                      {item.title}
+                    </span>
+                    {item.read ? (
+                      <Check className="mt-0.5 size-3.5 shrink-0 text-muted/60" aria-label="Read" />
+                    ) : (
+                      <span className="shrink-0 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-red-400">
+                        New
+                      </span>
+                    )}
                   </span>
-                  <span className="mt-1 block text-xs leading-5 text-navy-mid">{item.message}</span>
-                  <time className="mt-1.5 block text-[11px] text-muted" dateTime={item.createdAt}>{timeAgo(item.createdAt)}</time>
+                  <span className={`mt-1 block text-xs leading-5 ${item.read ? "text-muted" : "text-ink/90"}`}>
+                    {item.message}
+                  </span>
+                  <time className="mt-1.5 block text-[11px] font-medium text-muted/90" dateTime={item.createdAt}>
+                    {timeAgo(item.createdAt)}
+                  </time>
                 </span>
               </Link>
             )) : (
-              <div className="px-6 py-10 text-center">
+              <div className="bg-[#1b1c1f] px-6 py-10 text-center">
                 <span className="mx-auto flex size-10 items-center justify-center rounded-full bg-paper text-muted"><Bell className="size-4" /></span>
                 <p className="mt-3 text-sm font-medium text-navy">No notifications yet</p>
                 <p className="mt-1 text-xs leading-5 text-muted">Updates about your library activity will appear here.</p>

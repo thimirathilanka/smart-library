@@ -2,6 +2,7 @@ import "server-only";
 
 import { GridFSBucket, MongoClient, ObjectId, type Collection, type Db, type Document } from "mongodb";
 import type { ActivityLogRecord, Book, MemberRecord, MonthlyReads, NotificationRecord, ResearchPaper, ResourceRating } from "@/lib/types";
+import { deleteCloudinaryFile, getCloudinaryFileName, isCloudinaryFile } from "@/lib/cloudinary";
 
 const dbName = process.env.MONGODB_DB ?? "nextgen-library";
 
@@ -41,7 +42,11 @@ export async function getDb(): Promise<Db> {
 }
 
 export async function deleteGridFsFile(fileId?: string) {
-  if (!fileId || !ObjectId.isValid(fileId)) return false;
+  if (!fileId) return false;
+  if (isCloudinaryFile(fileId)) {
+    return deleteCloudinaryFile(fileId);
+  }
+  if (!ObjectId.isValid(fileId)) return false;
   const bucket = new GridFSBucket(await getDb());
   const id = new ObjectId(fileId);
   if (!(await bucket.find({ _id: id }).hasNext())) return false;
@@ -69,12 +74,25 @@ export async function uploadGridFsFile(file: File, contentType = "application/pd
 }
 
 export async function gridFsFilenames(fileIds: Array<string | undefined>) {
-  const ids = [...new Set(fileIds.filter((id): id is string => Boolean(id && ObjectId.isValid(id))))];
+  const uniqueIds = [...new Set(fileIds.filter((id): id is string => Boolean(id)))];
   const names = new Map<string, string>();
-  if (!ids.length) return names;
-  const bucket = new GridFSBucket(await getDb());
-  const files = await bucket.find({ _id: { $in: ids.map((id) => new ObjectId(id)) } }).toArray();
-  for (const file of files) names.set(file._id.toString(), file.filename);
+  if (!uniqueIds.length) return names;
+
+  const gridFsIds: string[] = [];
+  for (const id of uniqueIds) {
+    if (isCloudinaryFile(id)) {
+      names.set(id, getCloudinaryFileName(id));
+    } else if (ObjectId.isValid(id)) {
+      gridFsIds.push(id);
+    }
+  }
+
+  if (gridFsIds.length) {
+    const bucket = new GridFSBucket(await getDb());
+    const files = await bucket.find({ _id: { $in: gridFsIds.map((id) => new ObjectId(id)) } }).toArray();
+    for (const file of files) names.set(file._id.toString(), file.filename);
+  }
+
   return names;
 }
 
