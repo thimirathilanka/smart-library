@@ -1,10 +1,12 @@
 import "server-only";
 
 import { Readable } from "node:stream";
+import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getMemberFromRequest } from "@/lib/api/mobile-auth";
 import { openGridFsFile } from "@/lib/db";
 import { getMemberById } from "@/lib/data/members";
+import { getCloudinaryDownloadUrl, isCloudinaryFile } from "@/lib/cloudinary";
 import type { MemberRecord } from "@/lib/types";
 
 type PreviewSession = {
@@ -53,6 +55,11 @@ export async function storedFileResponse(
   fallbackType: string,
   options?: StoredFileOptions,
 ) {
+  if (isCloudinaryFile(fileId)) {
+    const url = getCloudinaryDownloadUrl(fileId);
+    return NextResponse.redirect(url, 307);
+  }
+
   const etag = `"${fileId}"`;
   const cacheControl =
     options?.cacheControl ??

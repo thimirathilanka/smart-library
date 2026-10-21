@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
-import { extractPdfExcerpt } from "@/lib/ai/pdf-excerpt";
+import { extractPdfExcerpt, getPdfPageCount } from "@/lib/ai/pdf-excerpt";
 import { summarizeForCatalog } from "@/lib/ai/summarize";
 import { draftFromForm, editsFromForm } from "@/lib/catalog-form";
 import {
