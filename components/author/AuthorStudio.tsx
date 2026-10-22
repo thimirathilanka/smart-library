@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   cancelRevisionAction,
   deleteAuthorResourceAction,
@@ -43,6 +44,25 @@ const statusLabel: Record<PublicationStatus, string> = {
 const editable: PublicationStatus[] = ["pending", "rejected", "withdrawn"];
 
 export function AuthorStudio({ submissions }: { submissions: AuthorSubmission[] }) {
+  const router = useRouter();
+  const [justSubmitted, setJustSubmitted] = useState(false);
+
+  const handleSubmissionSuccess = () => {
+    setJustSubmitted(true);
+    router.refresh();
+
+    setTimeout(() => {
+      const submissionsSection = document.getElementById("submissions");
+      if (submissionsSection) {
+        submissionsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 250);
+
+    setTimeout(() => {
+      setJustSubmitted(false);
+    }, 7000);
+  };
+
   return (
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(17rem,1fr)]">
       <section className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6">
@@ -56,17 +76,30 @@ export function AuthorStudio({ submissions }: { submissions: AuthorSubmission[] 
         <ResourceForm
           action={submitResourceAction}
           submitLabel="Submit for review"
-          pendingLabel="Submitting…"
+          pendingLabel="Submitting for review…"
           allowFileUpload
           requireFileUpload
           authorLayout
+          onSuccess={handleSubmissionSuccess}
         />
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-line bg-white p-4 shadow-sm sm:p-5">
+      <section
+        id="submissions"
+        className={`overflow-hidden rounded-2xl border bg-white p-4 shadow-sm transition-all duration-500 scroll-mt-20 sm:p-5 ${
+          justSubmitted ? "border-emerald-500/70 ring-2 ring-emerald-500/30" : "border-line"
+        }`}
+      >
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
-            <h2 className="font-serif text-2xl text-navy">Your submissions</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-serif text-2xl text-navy">Your submissions</h2>
+              {justSubmitted ? (
+                <span className="animate-pulse rounded-full border border-emerald-500/40 bg-emerald-500/20 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300">
+                  New submission added ✓
+                </span>
+              ) : null}
+            </div>
             <p className="mt-1 text-sm text-muted">Track review status and manage your submitted work.</p>
           </div>
           <span className="rounded-full bg-paper px-3 py-1 text-xs font-medium text-navy-mid">

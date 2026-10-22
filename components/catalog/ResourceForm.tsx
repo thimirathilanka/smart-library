@@ -132,11 +132,14 @@ export function ResourceForm({
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const isSubmittingRef = useRef(false);
   const selected = lockKind ?? kind;
   const storedFileName = initial?.currentFileName || null;
   const coverKept = Boolean(nextCoverName) || (initial?.hasCover ? keepCover : !initial?.clearCover);
 
   useEffect(() => {
+    isSubmittingRef.current = false;
     setUploading(false);
     setUploadProgress(null);
     if (state.success) {
@@ -180,6 +183,7 @@ export function ResourceForm({
     setCoverDropError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (coverInputRef.current) coverInputRef.current.value = "";
+    if (formRef.current) formRef.current.reset();
     if (!resourceId) setValues(valuesFromInitial());
   }, [state, resourceId]);
 
@@ -274,11 +278,18 @@ export function ResourceForm({
   }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    if (uploading || pending || isSubmittingRef.current) {
+      event.preventDefault();
+      return;
+    }
+
     if (manageExistingFiles && storedFileName && !keepFile && !nextFileName) {
       event.preventDefault();
       setClientError("Add a PDF to replace the current one.");
       return;
     }
+
+    isSubmittingRef.current = true;
 
     if (selectedFile) {
       event.preventDefault();
@@ -333,6 +344,7 @@ export function ResourceForm({
           formAction(formData);
         });
       } catch (err) {
+        isSubmittingRef.current = false;
         setUploading(false);
         setUploadProgress(null);
         const errMsg = err instanceof Error ? err.message : "PDF upload failed.";
@@ -418,6 +430,7 @@ export function ResourceForm({
         </div>
       )}
       <form
+        ref={formRef}
         action={formAction}
         onSubmit={onSubmit}
         className={cn("grid gap-4", authorLayout ? "lg:grid-cols-[minmax(15rem,0.8fr)_minmax(0,1.2fr)]" : "sm:grid-cols-2")}
@@ -691,10 +704,23 @@ export function ResourceForm({
         </div>
         <button
           type="submit"
-          disabled={pending || uploading}
-          className={cn("rounded-full bg-navy px-5 py-2.5 text-sm font-medium text-white hover:bg-navy-mid disabled:opacity-60", authorLayout ? "lg:col-span-2" : "sm:col-span-2")}
+          disabled={pending || uploading || isSubmittingRef.current}
+          className={cn(
+            "flex items-center justify-center gap-2 rounded-full bg-navy px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-navy-mid disabled:cursor-not-allowed disabled:opacity-60",
+            authorLayout ? "lg:col-span-2" : "sm:col-span-2"
+          )}
         >
-          {uploading ? (uploadProgress ?? "Uploading…") : pending ? pendingLabel : submitLabel}
+          {uploading || pending ? (
+            <>
+              <svg className="size-4 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+              <span>{uploading ? (uploadProgress ?? "Uploading…") : pendingLabel}</span>
+            </>
+          ) : (
+            submitLabel
+          )}
         </button>
       </form>
     </div>
