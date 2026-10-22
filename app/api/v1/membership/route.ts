@@ -2,14 +2,14 @@ import { preflight } from "@/lib/api/cors";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/api/http";
 import { memberToMobileUser, requireActiveMemberFromRequest } from "@/lib/api/mobile-auth";
 import { recordActivity } from "@/lib/data/activity";
-import {
-  cancelMembership,
-  getMemberById,
-  grantMembership,
-  hasActiveMembership,
-} from "@/lib/data/members";
+import { cancelMembership, getMemberById, hasActiveMembership } from "@/lib/data/members";
+import { getAppBaseUrl } from "@/lib/stripe";
 
 export const runtime = "nodejs";
+
+function membershipUrl() {
+  return `${getAppBaseUrl()}/membership`;
+}
 
 export function OPTIONS(request: Request) {
   return preflight(request);
@@ -22,6 +22,7 @@ export async function GET(request: Request) {
   return jsonOk(request, {
     isMember: hasActiveMembership(member),
     membershipExpiresAt: member.membershipExpiresAt ?? null,
+    membershipUrl: membershipUrl(),
     user: memberToMobileUser(member),
   });
 }
@@ -35,21 +36,14 @@ export async function POST(request: Request) {
 
   const action = String(body.action ?? "").trim();
   if (action === "purchase") {
-    const membershipExpiresAt = await grantMembership(member._id);
-    if (!membershipExpiresAt) return jsonError(request, "Your membership could not be updated.");
-    await recordActivity({
-      actorId: member._id,
-      action: "membership.purchased",
-      targetKind: "membership",
-      detail: "Started or renewed membership (mobile)",
-    });
-    const updated = await getMemberById(member._id);
-    return jsonOk(request, {
-      success: true,
-      isMember: true,
-      membershipExpiresAt,
-      user: updated ? memberToMobileUser(updated) : null,
-    });
+    return jsonOk(
+      request,
+      {
+        error: "Membership can only be purchased on the website.",
+        membershipUrl: membershipUrl(),
+      },
+      { status: 403 },
+    );
   }
 
   if (action === "cancel") {
@@ -70,5 +64,5 @@ export async function POST(request: Request) {
     });
   }
 
-  return jsonError(request, "Action must be purchase or cancel.");
+  return jsonError(request, "Action must be cancel.");
 }
