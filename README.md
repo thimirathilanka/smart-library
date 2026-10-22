@@ -17,22 +17,24 @@ On Windows PowerShell:
 Copy-Item .env.example .env.local
 ```
 
-3. Set in `.env.local`:
+1. Set in `.env.local`:
 
-| Variable | Required | Notes |
-| --- | --- | --- |
-| `MONGODB_URI` | Yes | Atlas connection string (`mongodb+srv://...`) |
-| `MONGODB_DB` | No | Defaults to `nextgen-library` |
-| `AUTH_SECRET` | Yes | Long random string. Generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
-| `AUTH_URL` | Yes | App URL, e.g. `http://localhost:3000` |
-| `ADMIN_NAME` | For first admin | Display name (max 160 characters) |
-| `ADMIN_EMAIL` | For first admin | Valid email. If the account already exists, seed leaves it unchanged |
-| `ADMIN_PASSWORD` | For first admin | At least 8 characters. The seeded admin is an active member |
-| `GEMINI_API_KEY` | No | Free key from [Google AI Studio](https://aistudio.google.com/apikey). Used to draft a short summary and subject phrases when a book or paper is submitted or saved for review. Catalog search matches that text after publish. If the key is missing or the request fails, the item still goes to review without a summary |
+
+| Variable         | Required        | Notes                                                                                                                                                                                                                                                                                                                      |
+| ---------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MONGODB_URI`    | Yes             | Atlas connection string (`mongodb+srv://...`)                                                                                                                                                                                                                                                                              |
+| `MONGODB_DB`     | No              | Defaults to `nextgen-library`                                                                                                                                                                                                                                                                                              |
+| `AUTH_SECRET`    | Yes             | Long random string. Generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`                                                                                                                                                                                                               |
+| `AUTH_URL`       | Yes             | App URL, e.g. `http://localhost:3000`                                                                                                                                                                                                                                                                                      |
+| `ADMIN_NAME`     | For first admin | Display name (max 160 characters)                                                                                                                                                                                                                                                                                          |
+| `ADMIN_EMAIL`    | For first admin | Valid email. If the account already exists, seed leaves it unchanged                                                                                                                                                                                                                                                       |
+| `ADMIN_PASSWORD` | For first admin | At least 8 characters. The seeded admin is an active member                                                                                                                                                                                                                                                                |
+| `GEMINI_API_KEY` | No              | Free key from [Google AI Studio](https://aistudio.google.com/apikey). Used to draft a short summary and subject phrases when a book or paper is submitted or saved for review. Catalog search matches that text after publish. If the key is missing or the request fails, the item still goes to review without a summary |
+
 
 Set `ADMIN_NAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` together, or leave all three empty. Partial values cause seed to fail.
 
-4. Install, set up the database, and run:
+1. Install, set up the database, and run:
 
 ```bash
 npm install
