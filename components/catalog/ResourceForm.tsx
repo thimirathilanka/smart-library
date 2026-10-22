@@ -93,6 +93,7 @@ export function ResourceForm({
   allowPublicationStatus = false,
   manageExistingFiles = false,
   authorLayout = false,
+  onSuccess,
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
   submitLabel: string;
@@ -105,6 +106,7 @@ export function ResourceForm({
   allowPublicationStatus?: boolean;
   manageExistingFiles?: boolean;
   authorLayout?: boolean;
+  onSuccess?: () => void;
 }) {
   const [kind, setKind] = useState<ResourceKind>(lockKind ?? "book");
   const [state, formAction, pending] = useActionState(action, {} as FormState);
@@ -143,6 +145,7 @@ export function ResourceForm({
         title: "Successfully Saved!",
         message: state.warning ? `${state.success} (${state.warning})` : state.success,
       });
+      onSuccess?.();
       const timer = setTimeout(() => setPopup(null), 6000);
       return () => clearTimeout(timer);
     }
