@@ -90,8 +90,8 @@ export function AuthorStudio({ submissions }: { submissions: AuthorSubmission[] 
 }
 
 function SubmissionRow({ item }: { item: AuthorSubmission }) {
-  const [versionOpen, setVersionOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [versionModalOpen, setVersionModalOpen] = useState(false);
   const [activeModalNote, setActiveModalNote] = useState<{
     title: string;
     type: "submission" | "revision";
@@ -99,9 +99,13 @@ function SubmissionRow({ item }: { item: AuthorSubmission }) {
   } | null>(null);
 
   useEffect(() => {
-    if (!activeModalNote) return;
+    if (!activeModalNote && !editModalOpen && !versionModalOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setActiveModalNote(null);
+      if (e.key === "Escape") {
+        setActiveModalNote(null);
+        setEditModalOpen(false);
+        setVersionModalOpen(false);
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -212,57 +216,27 @@ function SubmissionRow({ item }: { item: AuthorSubmission }) {
               Preview PDF
             </a>
           ) : null}
+          {canEdit ? (
+            <button
+              type="button"
+              onClick={() => setEditModalOpen(true)}
+              className="text-xs font-medium text-navy underline underline-offset-2 hover:opacity-80 transition cursor-pointer"
+            >
+              Edit and resubmit
+            </button>
+          ) : null}
           {item.status === "published" ? (
             <button
               type="button"
-              aria-expanded={versionOpen}
-              aria-label={`${versionOpen ? "Close editor for" : "Edit"} ${item.title}`}
-              onClick={() => setVersionOpen((open) => !open)}
-              className="text-xs font-medium text-navy underline underline-offset-2"
+              onClick={() => setVersionModalOpen(true)}
+              className="text-xs font-medium text-navy underline underline-offset-2 hover:opacity-80 transition cursor-pointer"
             >
-              {versionOpen ? "Close editor" : "New version"}
+              New version
             </button>
           ) : null}
           {item.status === "pending" ? <WithdrawButton item={item} /> : null}
           {canEdit ? <DeleteSubmission item={item} /> : null}
         </div>
-        {canEdit ? (
-          <details
-            open={editOpen}
-            onToggle={(e) => setEditOpen(e.currentTarget.open)}
-          >
-            <summary className="cursor-pointer text-xs font-medium text-navy underline underline-offset-2">
-              Edit and resubmit
-            </summary>
-            <div className="mt-3 rounded-lg border border-line bg-paper/35 p-3">
-              <ResourceForm
-                action={resubmitResourceAction}
-                submitLabel="Send for review"
-                pendingLabel="Sending…"
-                lockKind={item.kind}
-                resourceId={item.id}
-                initial={{ ...item, ...filesForEdit(item, "submission") }}
-                allowFileUpload
-                manageExistingFiles
-              />
-            </div>
-          </details>
-        ) : null}
-        {item.status === "published" && versionOpen ? (
-          <div className="rounded-lg border border-line bg-paper/35 p-3">
-            <ResourceForm
-              action={submitRevisionAction}
-              submitLabel="Send new version"
-              pendingLabel="Sending…"
-              lockKind={item.kind}
-              resourceId={item.id}
-              initial={revisionInitial}
-              allowFileUpload
-              manageExistingFiles
-            />
-            {item.revision ? <CancelRevision item={item} /> : null}
-          </div>
-        ) : null}
       </div>
 
       {/* Review Note Centered Pop-up Modal */}
@@ -350,7 +324,7 @@ function SubmissionRow({ item }: { item: AuthorSubmission }) {
                   type="button"
                   onClick={() => {
                     setActiveModalNote(null);
-                    setEditOpen(true);
+                    setEditModalOpen(true);
                   }}
                   className="flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-red-600/30 hover:bg-red-500 transition-colors cursor-pointer"
                 >
@@ -360,6 +334,165 @@ function SubmissionRow({ item }: { item: AuthorSubmission }) {
                   </svg>
                 </button>
               ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Edit & Resubmit Centered Pop-up Modal */}
+      {editModalOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-150 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditModalOpen(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-submission-modal-title"
+            className="relative w-full max-w-4xl my-auto rounded-2xl border border-white/10 bg-[#161a18] p-5 sm:p-7 text-white shadow-2xl max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-150"
+          >
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+                    Edit & Resubmit
+                  </span>
+                  <span className="text-[11px] uppercase tracking-wider text-white/50 font-semibold">
+                    {item.kind}
+                  </span>
+                </div>
+                <h2 id="edit-submission-modal-title" className="mt-1 font-serif text-xl sm:text-2xl font-medium text-white">
+                  Edit “{item.title}”
+                </h2>
+                <p className="mt-1 text-xs text-white/60">
+                  Update your resource details or upload replacement files, then send for editorial review.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditModalOpen(false)}
+                className="rounded-lg p-2 text-white/50 hover:bg-white/10 hover:text-white transition cursor-pointer shrink-0"
+                aria-label="Close edit dialog"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Scrollable Body */}
+            <div className="flex-1 overflow-y-auto pr-1 pt-4 space-y-4">
+              {item.reviewNote ? (
+                <div className="rounded-xl border border-red-500/25 bg-red-950/30 p-4">
+                  <div className="flex items-center justify-between text-[11px] font-semibold tracking-wider uppercase text-red-400">
+                    <span>Reviewer Feedback to Address</span>
+                    <span className="text-[10px] text-white/40 font-normal">Editor Note</span>
+                  </div>
+                  <p className="mt-1.5 text-xs sm:text-sm leading-relaxed text-red-100 whitespace-pre-wrap font-sans">
+                    “{item.reviewNote}”
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="rounded-xl border border-white/10 bg-black/25 p-4 sm:p-6">
+                <ResourceForm
+                  action={resubmitResourceAction}
+                  submitLabel="Send for review"
+                  pendingLabel="Submitting changes…"
+                  lockKind={item.kind}
+                  resourceId={item.id}
+                  initial={{ ...item, ...filesForEdit(item, "submission") }}
+                  allowFileUpload
+                  manageExistingFiles
+                  authorLayout
+                  onSuccess={() => {
+                    setTimeout(() => setEditModalOpen(false), 1500);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* New Version Centered Pop-up Modal */}
+      {versionModalOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-150 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setVersionModalOpen(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="version-submission-modal-title"
+            className="relative w-full max-w-4xl my-auto rounded-2xl border border-white/10 bg-[#161a18] p-5 sm:p-7 text-white shadow-2xl max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-150"
+          >
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 text-[10px] font-semibold text-amber-300">
+                    New Version
+                  </span>
+                  <span className="text-[11px] uppercase tracking-wider text-white/50 font-semibold">
+                    {item.kind}
+                  </span>
+                </div>
+                <h2 id="version-submission-modal-title" className="mt-1 font-serif text-xl sm:text-2xl font-medium text-white">
+                  Publish New Version of “{item.title}”
+                </h2>
+                <p className="mt-1 text-xs text-white/60">
+                  Submit an updated edition. The published version remains active until this new version is reviewed.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setVersionModalOpen(false)}
+                className="rounded-lg p-2 text-white/50 hover:bg-white/10 hover:text-white transition cursor-pointer shrink-0"
+                aria-label="Close version dialog"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Scrollable Body */}
+            <div className="flex-1 overflow-y-auto pr-1 pt-4 space-y-4">
+              {item.revision?.status === "rejected" && item.revision.reviewNote ? (
+                <div className="rounded-xl border border-red-500/25 bg-red-950/30 p-4">
+                  <div className="flex items-center justify-between text-[11px] font-semibold tracking-wider uppercase text-red-400">
+                    <span>Revision Feedback to Address</span>
+                    <span className="text-[10px] text-white/40 font-normal">Editor Note</span>
+                  </div>
+                  <p className="mt-1.5 text-xs sm:text-sm leading-relaxed text-red-100 whitespace-pre-wrap font-sans">
+                    “{item.revision.reviewNote}”
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="rounded-xl border border-white/10 bg-black/25 p-4 sm:p-6">
+                <ResourceForm
+                  action={submitRevisionAction}
+                  submitLabel="Send new version"
+                  pendingLabel="Sending…"
+                  lockKind={item.kind}
+                  resourceId={item.id}
+                  initial={revisionInitial}
+                  allowFileUpload
+                  manageExistingFiles
+                  authorLayout
+                  onSuccess={() => {
+                    setTimeout(() => setVersionModalOpen(false), 1500);
+                  }}
+                />
+                {item.revision ? <CancelRevision item={item} /> : null}
+              </div>
             </div>
           </div>
         </div>
